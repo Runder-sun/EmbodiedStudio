@@ -1,48 +1,67 @@
 # EmbodiedStudio
 
-EmbodiedStudio turns a natural-language task into an executable, scoreable robot simulation. A coding agent authors the scene, task, robot behavior and rubric. The workbench shows the frozen 3D scene, build history, and recorded robot runs. The environment can be reused for a new policy or for evaluation against the same rubric.
+[中文](README.zh-CN.md)
 
-## Start the workbench
+EmbodiedStudio is a browser workbench for building robot tasks in Isaac Sim. Describe a task, and Studio uses your Codex CLI to write the scene and the code that scores it. You can inspect the 3D scene, play back a recorded robot run, and see how that run was scored.
 
-Install [Node.js](https://nodejs.org/) 22 or later and open a terminal in this repository.
+## Get started
+
+Install [Node.js](https://nodejs.org/) 22 or later. From the repository directory, run:
 
 ```sh
 npm ci
 npm start
 ```
 
-Open <http://127.0.0.1:8765>. The workbench and 3D start screen can open before a compute host is configured. The server binds to loopback. On macOS, `SceneAgent.command` provides the same local launch.
+Open [http://127.0.0.1:8765](http://127.0.0.1:8765). On a fresh install, Studio opens **Workspace settings**. The toolbar has a language picker and a **Settings** button to reopen the wizard.
 
-For agent-driven authoring, install and sign in to the [Codex CLI](https://developers.openai.com/codex/cli/) as the user running Studio. The workbench starts that user's native Codex app server and registers the repository's scene-generation skill and local MCP tools. Follow the [compute setup guide](docs/compute.md) for a separate SSH server or for a Linux RTX workstation serving both roles. Follow the [asset setup guide](docs/assets.md) to import individual models or make your own library searchable.
+You can open the workbench with just Node.js. To generate a scene, sign in to your [Codex CLI](https://developers.openai.com/codex/cli/) on the machine running Studio and connect a simulation host:
 
-## Generate and inspect a task
-
-1. Create a workspace and enter a scene and task request in the workbench.
-2. Select **Generate** and choose the requested outputs. The agent selects resources, writes the project source, builds a revision, observes the simulation, and checks actual executions.
-3. Open the scene tree, 3D view, execution recordings, or source files. Inspect the delivery receipt for what was requested, what was accepted, and which attempts were incomplete.
-
-Build and preview share a frozen environment revision. Behavior programs can be frozen independently for additional data collection on that environment. A generated rubric reads the declared task facts and can be used to score another policy.
-
-| Output | Contents |
+| Your setup | Where simulation runs |
 | --- | --- |
-| Construction history | Scene-program changes, tool evidence and linked build revisions |
-| Execution data | Recorded observations, actions, camera frames, scores and episode outcomes |
-| Evaluation environment | Frozen USD scene, task bindings, rubric source and policy interface |
+| One x86-64 Linux PC with an NVIDIA RTX GPU | On the same PC. Choose **Workspace host** in Settings. |
+| A Mac or a separate workstation | On your x86-64 Linux RTX server. Choose **SSH compute server** in Settings. |
 
-The [authoring API](skills/scene-generation/references/api.md) covers the scene and task programs. See the [delivery guide](skills/scene-generation/references/delivery.md) for output contracts, [robot resources](skills/scene-generation/references/robots.md) for model selection, and [consumer entry points](examples/) for reading or evaluating a delivered project.
+If you already have Isaac Sim, enter its Python path in Settings. Otherwise, save a draft and select **Isaac Sim environment** in the installer. Once the environment is ready, check the compute host, choose a GPU, save and activate the draft, and restart Studio. Studio uses Isaac Sim `6.0.0.1` with Python 3.12. [Setup walkthrough](docs/compute.md)
 
-## Verification
+## Try a tabletop task
+
+Create a project and paste this into the prompt box:
+
+> Set up a tabletop with a red block and a shallow tray. Define a task to put the block inside the tray.
+
+Choose **Scene and evaluation environment** to start. Open the 3D view and scene tree after the build. For robot runs and recorded data, choose **Complete generation**. You can supply a robot package or name a model for Codex to look for. The robot also needs a controller or policy that can perform the task.
+
+The source package contains the workbench and runtime. You can give Studio a public GLB link, bring a local USD or URDF package, or register a library you already use. [Asset setup](docs/assets.md)
+
+## Use the outputs
+
+| Output | What you can do with it |
+| --- | --- |
+| Construction history | Follow a scene change back to the source edits and build that produced it. |
+| Robot execution data | Read recorded observations, actions, camera frames and task scores. |
+| Evaluation environment | Run a compatible policy against the same frozen scene and scoring program. |
+
+See the [authoring API](skills/scene-generation/references/api.md) and the [delivery guide](skills/scene-generation/references/delivery.md) for the file formats and interfaces. Both references are in Chinese.
+
+## Develop
+
+Run `npm test` for the workbench and tool tests.
+
+<details>
+<summary>Python tests</summary>
 
 ```sh
-npm test
 python3.12 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements-test.txt
 python -m tests.run_suite tests.test_runtime tests.test_planned_motion tests.test_records
 ```
 
-These Python checks use standalone OpenUSD and system fixtures. For the full suite, run `python -m tests.run_suite` from a Linux Isaac Sim environment that also provides the test dependencies. Use the SDK's own OpenUSD and PhysX plugins in that environment. GPU rendering, native robot execution and task-level results require separate validation on a compute host.
+For the full suite, run `python -m tests.run_suite` in a Linux Isaac Sim environment with the test dependencies and the SDK's OpenUSD and PhysX plugins. Validate rendering and robot execution separately on the compute host.
 
-## Source and dependencies
+</details>
 
-This source release contains the workbench, runtime, scene-generation skill and consumer code. See the [source license](LICENSE) and [third-party components](THIRD_PARTY.md). Research scenes, benchmark archives, third-party robot assets, recordings and training data have independent distribution and licensing requirements.
+## License
+
+See the [source license](LICENSE) and [third-party terms](THIRD_PARTY.md). Asset, model and dataset licenses depend on their sources.

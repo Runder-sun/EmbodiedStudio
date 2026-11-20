@@ -244,7 +244,7 @@ test('workspace preparation produces a complete new launchable source tree and i
   await f.setup.install({requestId:'complete_deployment',targetHash:state.configuration.effectiveHash,items:[{recipeId:'workspace-dependencies',options:{destination},acceptedLicenses:[]}]});
   let receipt;for(let n=0;n<400;n++){receipt=await f.setup.installation('complete_deployment');if(receipt.status!=='running')break;await new Promise(resolve=>setTimeout(resolve,5));}
   assert.equal(receipt.status,'completed',receipt.error);assert.equal(calls.length,1);assert.equal(calls[0].executable,process.execPath);assert.ok(calls[0].args.includes('ci'));assert.equal(calls[0].args[calls[0].args.indexOf('--prefix')+1],destination);
-  for(const file of ['src/server.mjs','runtime/jobs.py','web/index.html','skills/scene-generation/SKILL.md','setup/recipes.json','SceneAgent.command','package-lock.json','tests/probe_motion_backend.py'])assert.ok((await stat(path.join(destination,file))).isFile(),file);
+  for(const file of ['README.md','README.zh-CN.md','src/server.mjs','runtime/jobs.py','web/index.html','skills/scene-generation/SKILL.md','setup/recipes.json','SceneAgent.command','package-lock.json','tests/probe_motion_backend.py'])assert.ok((await stat(path.join(destination,file))).isFile(),file);
   for(const file of ['studio.config.json','.state','projects','node_modules'])await assert.rejects(stat(path.join(destination,file)),{code:'ENOENT'});
 });
 

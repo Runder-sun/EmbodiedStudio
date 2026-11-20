@@ -398,7 +398,7 @@ print(json.dumps({'created':str(p)}))`;
     }
   }
   if(recipe.action==='dependencies'){
-    for(const file of ['package.json','package-lock.json','README.md','studio.config.example.json','SceneAgent.command','LICENSE','THIRD_PARTY.md','requirements-motion.txt','docs/compute.md','docs/assets.md']){
+    for(const file of ['package.json','package-lock.json','README.md','README.zh-CN.md','studio.config.example.json','SceneAgent.command','LICENSE','THIRD_PARTY.md','requirements-motion.txt','docs/compute.md','docs/assets.md']){
       const source=path.join(ROOT,file);
       if (!(await lstat(source).catch(error=>{if(error.code!=='ENOENT')throw error;}))?.isFile()) continue;
       await mkdir(path.dirname(path.join(destination,file)),{recursive:true});
