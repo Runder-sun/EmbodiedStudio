@@ -2,16 +2,36 @@
 
 The workbench runs on a workstation and starts jobs over SSH on an x86-64 Linux host with an NVIDIA RTX GPU. The current simulation code targets Isaac Sim `6.0.0.1`, Python 3.12 and PhysX. Use the matching [NVIDIA installation guide](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/install_python.html) and [driver requirements](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/requirements.html). Formal program execution also uses Linux bubblewrap.
 
+## Choose the deployment
+
+| Setup | Where each part runs |
+| --- | --- |
+| Workstation and your own GPU server | Run the workbench and your signed-in Codex CLI on the workstation. Run Isaac Sim, the asset library and jobs on your Linux RTX server. |
+| One Linux RTX workstation | Install both parts on that workstation. Use the same SSH configuration with an alias pointing at `127.0.0.1`. The compute connection still uses SSH. |
+| macOS workstation | Run the workbench and Codex on the Mac. Use a Linux RTX host for simulation, rendering and robot execution. |
+
+## Connect the workbench
+
 1. Set up a host alias in `~/.ssh/config` and verify `ssh -o BatchMode=yes simulation-host true`. Use the SSH account that will own the data and jobs.
 2. Install Isaac Sim in an isolated Python environment on that host. Choose a writable project data root with room for immutable scene revisions and video. Optional pre-existing asset catalogs can be referenced through a read-only `legacyRoot`. An unset `legacyRoot` resolves to `asset-library` inside the project data root.
 3. Copy `studio.config.example.json` to `studio.config.json` and edit the SSH alias and absolute paths for `remoteRoot` and `remotePython`. Set `codexBinary` if the executable is outside the workstation's command search path. Set `codexModel` only if your account uses an explicit model.
 4. Query the compute GPU with `nvidia-smi --query-gpu=index,uuid,memory.free --format=csv`. For rendering and execution, set `remoteGpu` to an object with the measured integer `index` and the corresponding `uuid`. Use a GPU that has been assigned to your workload. On shared hosts, check free memory and coordinate reservations with other users before adding jobs.
 5. Restart the workbench and run `npm run scene -- health`. The health command verifies the SSH, Python and worker dispatch path. Build a scene and run a recorded robot task to verify the simulator and your robot resources.
 
+For a single workstation, configure the SSH service and key login for your local account, then set your alias as follows. Use the resulting alias as `remoteHost` and the local absolute paths as `remoteRoot` and `remotePython`.
+
+```sshconfig
+Host simulation-host
+    HostName 127.0.0.1
+    User your-linux-user
+```
+
+Install and sign in to Codex on the machine that starts Studio. Use the same OS account for both. Run `codex login status` and `codex app-server --help` to check the installation. Studio launches the CLI through `codexBinary`, defaulting to `codex` on the command search path. An omitted `codexModel` uses the CLI's default. The released workbench connects to the native app server and uses its skill, local tool and subagent capabilities.
+
 The workbench settings panel is under development. Configure the compute host using the file above.
 
 ## Optional runtime components
 
-- **Robot and scene assets.** Obtain each package from an authorized source. Use the [robot resource guide](../skills/scene-generation/references/robots.md) and the [asset preparation contract](../skills/scene-generation/references/api.md). The distribution contains no pretrained policy weights or asset libraries.
+- **Robot and scene assets.** Follow the [asset setup guide](assets.md) for individual imports, a searchable library and robot packages.
 - **Numerical planning.** The included cuRobo integration expects the exact revision in [requirements-motion.txt](../requirements-motion.txt), the SDK Warp distribution, and a verified local `runtime/motion-dependencies.json`. This file identifies the interpreter, actual loaded library paths, dependency byte hashes and ABI. The workbench includes it in the frozen runtime packet when present. Check planning capability in `health` before selecting this backend. The lab's machine-specific profile is excluded. The [native compatibility probe](../tests/probe_motion_backend.py) can characterize a prepared local profile. It records the compatibility checks and source identity on the target compute host.
 - **Training format readers.** [examples/delivery-requirements.txt](../examples/delivery-requirements.txt) documents the separate Linux CPython 3.12 reader environment for LeRobot and HDF5. Follow the [delivery contract](../skills/scene-generation/references/delivery.md) for the required formats and consumer checks. Preserve existing frozen runtime snapshots when reusing old artifacts.

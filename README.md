@@ -13,7 +13,7 @@ npm start
 
 Open <http://127.0.0.1:8765>. The workbench and 3D start screen can open before a compute host is configured. The server binds to loopback. On macOS, `SceneAgent.command` provides the same local launch.
 
-For agent-driven authoring, install and sign in to the [Codex CLI](https://developers.openai.com/codex/cli/). The workbench starts the native app server and registers the repository's scene-generation skill and local MCP tools. Configure an [Isaac Sim compute host](docs/compute.md) before requesting a build or robot rollout.
+For agent-driven authoring, install and sign in to the [Codex CLI](https://developers.openai.com/codex/cli/) as the user running Studio. The workbench starts that user's native Codex app server and registers the repository's scene-generation skill and local MCP tools. Follow the [compute setup guide](docs/compute.md) for a separate SSH server or for a Linux RTX workstation serving both roles. Follow the [asset setup guide](docs/assets.md) to import individual models or make your own library searchable.
 
 ## Generate and inspect a task
 
