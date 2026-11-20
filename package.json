@@ -1,0 +1,20 @@
+{
+  "name": "embodiedstudio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Task-driven robot simulation authoring, execution, and evaluation",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "scene": "node src/cli.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "three": "0.186.1",
+    "zod": "4.6.5"
+  }
+}

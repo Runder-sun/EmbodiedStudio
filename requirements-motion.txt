@@ -1,0 +1,7 @@
+# Single numerical planning backend. Install only into the isolated v5 prefix.
+# This legacy commit uses NVIDIA's research/evaluation-only license; it is not cuRoboV2.
+# Build against the prefix's existing PyTorch/CUDA; do not install AutoData or its system CUDA script.
+nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8
+
+# Install this fixed backend with --no-deps in the prepared SDK prefix.
+# Warp comes only from Isaac6 omni.warp.core 1.13.0; do not install a pip Warp copy.

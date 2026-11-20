@@ -1,0 +1,9 @@
+node_modules/
+.state/
+projects/
+studio.config.json
+runtime/motion-dependencies.json
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

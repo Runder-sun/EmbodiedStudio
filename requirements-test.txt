@@ -1,0 +1,8 @@
+imageio
+imageio-ffmpeg
+numpy
+Pillow
+PyYAML
+scipy
+trimesh
+usd-core

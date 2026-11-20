@@ -1,0 +1,8 @@
+{
+  "port": 8765,
+  "codexBinary": "codex",
+  "remoteHost": "simulation-host",
+  "remoteRoot": "/srv/embodiedstudio",
+  "remotePython": "/srv/embodiedstudio/envs/isaac/bin/python",
+  "remoteGpu": null
+}
