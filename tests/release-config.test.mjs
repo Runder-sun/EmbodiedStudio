@@ -10,12 +10,12 @@ test('a fresh checkout loads safe display defaults without a private config', as
   t.after(() => rm(root, { recursive: true, force: true }));
   await cp(new URL('../src/config.mjs', import.meta.url), path.join(root, 'src/config.mjs'));
   const read = () => spawnSync(process.execPath, ['--input-type=module', '-e',
-    "import { config } from './src/config.mjs'; console.log(JSON.stringify(config));"], { cwd: root, encoding: 'utf8' });
+    "import { config, configuration } from './src/config.mjs'; console.log(JSON.stringify({ ...config, diagnostics:configuration.diagnostics }));"], { cwd: root, encoding: 'utf8' });
   const result = read();
   assert.equal(result.status, 0, result.stderr);
   const defaults = JSON.parse(result.stdout);
   assert.equal(defaults.port, 8765);
-  assert.equal(defaults.remoteHost, '');
+  assert.equal(defaults.remoteHost, null);
 
   await writeFile(path.join(root, 'studio.config.json'), JSON.stringify({ port: 8777, remoteHost: 'my-render-host' }));
   const configured = read();
@@ -25,5 +25,7 @@ test('a fresh checkout loads safe display defaults without a private config', as
   assert.equal(overrides.remoteHost, 'my-render-host');
 
   await writeFile(path.join(root, 'studio.config.json'), 'invalid config');
-  assert.notEqual(read().status, 0);
+  const invalid = read();
+  assert.equal(invalid.status, 0, invalid.stderr);
+  assert.equal(JSON.parse(invalid.stdout).diagnostics.length, 1);
 });

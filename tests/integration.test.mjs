@@ -122,8 +122,9 @@ test('an explicit budget expiring inside native preflight cannot send a late tur
     if(preparing && ++snapshots===2) current+=101;
   },bridge:{async turn(_id,text){turns.push(text);return {id:'budget-'+turns.length,status:'inProgress'};},
     async readThread(){return {id:'thread-test',status:{type:'idle'},turns:turns.map((_text,index)=>({id:'budget-'+(index+1),status:'completed',items:[]}))};}}});
+  current=Date.now();studio.host.now=()=>current;
   assert.equal((await request('/api/projects/p_test/chat',{message:'SYSTEM_VERIFICATION_ONLY',mode:'generate',timeBudgetMs:100})).status,200);
-  project.generation.startedAt=new Date(current).toISOString();studio.host.now=()=>current;
+  project.generation.startedAt=new Date(current).toISOString();
   preparing=true;
   await studio.host.turnCompleted(project,{id:project.activeTurnId,status:'completed'});
   assert.equal(turns.length,1,'source observation inside nativeTurn consumed the remaining user budget');

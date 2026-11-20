@@ -5,7 +5,7 @@ const ids = ['open-settings','setup-close','setup-content','setup-recipe','setup
   'setup-tunnel-host','setup-tunnel-port','setup-tunnel-remote-port','setup-tunnel-command',
   'setup-dialog','setup-form','setup-error','setup-summary','setup-config-status','setup-runtime-mode',
   'setup-workspace-root','setup-data-root','setup-python','setup-ssh-host','setup-codex-binary','setup-codex-script',
-  'setup-codex-model','setup-gpu-lock-root','setup-port','setup-gpus','setup-save','setup-activate','setup-target',
+  'setup-codex-model','setup-gpu-peak','setup-legacy-root','setup-port','setup-gpus','setup-save','setup-activate','setup-target',
   'setup-motion-dependencies','setup-recipes','setup-installs','setup-probe-result','setup-refresh','setup-install'];
 
 function documentFixture() {

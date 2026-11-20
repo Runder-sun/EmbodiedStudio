@@ -26,7 +26,7 @@ Place your files and catalog on the simulation host. This example assumes a USD 
           chair.usda
 ```
 
-Put this in `assets/collections/catalog.json`. If that catalog already has entries, append the new collection and asset to the existing arrays and keep their IDs unique.
+Save this JSON on the compute host, for example as `my-library.json` inside `remoteRoot`. In **Settings**, choose **Register existing assets** and set that file as the catalog. Studio merges it into `assets/collections/catalog.json`. You can also maintain that catalog directly. Keep collection and asset IDs unique when adding entries.
 
 ```json
 {
@@ -60,6 +60,8 @@ Put this in `assets/collections/catalog.json`. If that catalog already has entri
 - `packageRoot` is relative to the selected source root. `current_assets` uses `remoteRoot/assets`. For an existing read-only library, set `legacyRoot` and use `legacy_assets` or `legacy_data` for its `assets` or `data` subdirectory.
 - `entry` and `dependencyFiles` are relative to `packageRoot`. Use ordinary files and normalized relative paths. Add the actual `sourcePage`, `sourceRevision` and `licenseEvidence` to the asset row when available. Leave the license unknown until it can be traced to the source.
 - From the workstation, run `npm run scene -- assets "office chair"`. The lookup rebuilds the local index on the compute host as the catalog changes. In a generation request, name the asset ID or collection so the agent can find it and prepare it. Search verifies catalog registration. Scene build and robot execution verify their respective use of the asset.
+
+The **Settings** panel also offers selected upstream asset packages. Pick the packages and their licenses, and download to a new directory under `assets/staging`. The receipt shows the staged catalog path. Use **Publish staged assets** to register that catalog in the active compute library.
 
 ## Add a robot model
 

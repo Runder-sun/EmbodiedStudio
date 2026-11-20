@@ -1,5 +1,6 @@
 node_modules/
 .state/
+.sceneagent-setup/
 projects/
 studio.config.json
 runtime/motion-dependencies.json

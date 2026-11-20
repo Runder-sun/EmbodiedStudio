@@ -1,0 +1,357 @@
+[
+  {
+    "id": "workspace-dependencies",
+    "effect": "prepare",
+    "host": "studio",
+    "platforms": [
+      "win32",
+      "darwin",
+      "linux"
+    ],
+    "action": "dependencies",
+    "licenseIds": [],
+    "commands": [
+      {
+        "executable": "$npm",
+        "args": [
+          "ci",
+          "--prefix",
+          "{destination}",
+          "--no-audit",
+          "--no-fund"
+        ]
+      }
+    ],
+    "source": "package-lock.json",
+    "available": true,
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "codex-cli",
+    "effect": "prepare",
+    "host": "studio",
+    "platforms": [
+      "win32",
+      "darwin",
+      "linux"
+    ],
+    "licenseIds": [],
+    "commands": [
+      {
+        "executable": "$npm",
+        "args": [
+          "install",
+          "--prefix",
+          "{destination}",
+          "--no-audit",
+          "--no-fund",
+          "@openai/codex@{version}"
+        ]
+      }
+    ],
+    "source": "https://learn.chatgpt.com/docs/enterprise/windows-deployment",
+    "available": true,
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "version",
+        "type": "version",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "isaac6-runtime",
+    "effect": "prepare",
+    "host": "compute",
+    "platforms": [
+      "linux"
+    ],
+    "licenseIds": [
+      "omniverse-eula:6.0.0.1"
+    ],
+    "commands": [
+      {
+        "executable": "{python}",
+        "args": [
+          "-m",
+          "venv",
+          "{destination}"
+        ]
+      },
+      {
+        "executable": "{newPython}",
+        "args": [
+          "-m",
+          "pip",
+          "install",
+          "torch==2.11.0",
+          "--index-url",
+          "https://download.pytorch.org/whl/cu128"
+        ]
+      },
+      {
+        "executable": "{newPython}",
+        "args": [
+          "-m",
+          "pip",
+          "install",
+          "isaacsim[all,extscache]==6.0.0.1",
+          "numpy==2.3.1",
+          "trimesh==4.11.1",
+          "yourdfpy==0.0.60",
+          "imageio",
+          "imageio-ffmpeg",
+          "Pillow",
+          "--extra-index-url",
+          "https://pypi.nvidia.com"
+        ]
+      }
+    ],
+    "source": "https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/install_python.html",
+    "version": "6.0.0.1",
+    "licenseUrl": "https://docs.omniverse.nvidia.com/platform/latest/common/NVIDIA_Omniverse_License_Agreement.html",
+    "available": true,
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "basePython",
+        "type": "path",
+        "required": false
+      }
+    ],
+    "diskBytes": 53687091200
+  },
+  {
+    "id": "motion-backend",
+    "effect": "gpu_verify",
+    "host": "compute",
+    "platforms": [
+      "linux"
+    ],
+    "licenseIds": [
+      "curobo-research:ebb71702f3f70e767f40fd8e050674af0288abe8"
+    ],
+    "action": "gpu",
+    "source": "https://github.com/NVlabs/curobo/tree/ebb71702f3f70e767f40fd8e050674af0288abe8",
+    "reason": "CUDA 编译和验证使用选定显卡的共享显存预留。",
+    "available": true,
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "prefix",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "peakMiB",
+        "type": "number",
+        "required": true
+      }
+    ],
+    "version": "ebb71702f3f70e767f40fd8e050674af0288abe8",
+    "licenseUrl": "https://github.com/NVlabs/curobo/blob/ebb71702f3f70e767f40fd8e050674af0288abe8/LICENSE"
+  },
+  {
+    "id": "register-existing-assets",
+    "effect": "publish",
+    "host": "compute",
+    "licenseIds": [],
+    "action": "register",
+    "source": "sceneagent-asset-collections-v1",
+    "available": true,
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "catalogFile",
+        "type": "path",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "publish-staged-assets",
+    "effect": "publish",
+    "host": "compute",
+    "licenseIds": [],
+    "action": "register",
+    "source": "sceneagent-asset-collections-v1",
+    "available": true,
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "catalogFile",
+        "type": "path",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "verify-runtime",
+    "effect": "gpu_verify",
+    "host": "compute",
+    "platforms": [
+      "linux"
+    ],
+    "licenseIds": [
+      "omniverse-eula:6.0.0.1",
+      "curobo-research:ebb71702f3f70e767f40fd8e050674af0288abe8"
+    ],
+    "action": "gpu",
+    "source": "tests/probe_motion_backend.py",
+    "available": true,
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "prefix",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "robotPackage",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "peakMiB",
+        "type": "number",
+        "required": true
+      }
+    ],
+    "reason": "使用已选显卡和显存预留，读取已有冻结 Franka 包，执行库和原生仿真检查并保存依赖清单。"
+  },
+  {
+    "id": "install-artvip",
+    "effect": "prepare",
+    "host": "compute",
+    "platforms": [
+      "linux",
+      "darwin",
+      "win32"
+    ],
+    "action": "assets",
+    "manifest": "artvip.json",
+    "source": "https://huggingface.co/datasets/X-Humanoid/ArtVIP",
+    "licenseIds": [],
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "packageIds",
+        "type": "packages",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "install-robodojo-assets",
+    "effect": "prepare",
+    "host": "compute",
+    "platforms": [
+      "linux",
+      "darwin",
+      "win32"
+    ],
+    "action": "assets",
+    "manifest": "robodojo.json",
+    "source": "https://huggingface.co/datasets/RoboDojo-Benchmark/RoboDojo",
+    "licenseIds": [],
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "packageIds",
+        "type": "packages",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "install-simready-selection",
+    "effect": "prepare",
+    "host": "compute",
+    "platforms": [
+      "linux",
+      "darwin",
+      "win32"
+    ],
+    "action": "assets",
+    "manifest": "simready.json",
+    "source": "https://huggingface.co/datasets/nvidia/simready-assets",
+    "licenseIds": [],
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "packageIds",
+        "type": "packages",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": "install-robocasa-lightwheel",
+    "effect": "prepare",
+    "host": "compute",
+    "platforms": [
+      "linux",
+      "darwin",
+      "win32"
+    ],
+    "action": "assets",
+    "manifest": "robocasa.json",
+    "source": "https://github.com/robocasa/robocasa",
+    "licenseIds": [],
+    "options": [
+      {
+        "key": "destination",
+        "type": "path",
+        "required": true
+      },
+      {
+        "key": "packageIds",
+        "type": "packages",
+        "required": true
+      }
+    ]
+  }
+]

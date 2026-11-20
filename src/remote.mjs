@@ -9,6 +9,81 @@ import { lookup } from 'node:dns/promises';
 import { BlockList, isIP } from 'node:net';
 import { ROOT, config, quote, validId } from './config.mjs';
 
+// Explicit CPU publication; the setup caller holds its affected catalog claim.
+export async function registerAssetCatalog(input, { target = config, signal } = {}) {
+  if(typeof input.catalogFile!=='string'||!(target.runtimeMode==='ssh'?path.posix:path).isAbsolute(input.catalogFile))throw new Error('请选择执行主机上的已有目录清单绝对路径。');
+  const files={};for(const name of ['assets.py','records.py','simulation.py'])files[name]=(await readFile(path.join(ROOT,'runtime',name))).toString('base64');
+  const script=`import sys,json,pathlib,base64,tempfile,hashlib,os,shutil
+p=json.load(sys.stdin);root=pathlib.Path(p['root']).resolve();source=pathlib.Path(p['catalogFile'])
+if not source.is_absolute() or source.is_symlink() or not source.resolve().is_relative_to(root): raise ValueError('catalog input must be a plain file inside configured data root')
+raw=source.read_bytes()
+if len(raw)>32*1024*1024: raise ValueError('catalog exceeds bounded size')
+value=json.loads(raw)
+if value.get('schema')!='sceneagent-asset-collections-v1' or not isinstance(value.get('collections'),list) or not isinstance(value.get('assets'),list): raise ValueError('unsupported collection catalog')
+base=root/'assets'/'collections';base.mkdir(parents=True,exist_ok=True)
+if base.resolve()!=base: raise ValueError('catalog directory must not be a symlink')
+lock=(base/'.catalog-publish.lock').open('a+b')
+try:
+ if os.name=='nt':
+  import msvcrt,time
+  lock.seek(0);lock.write(b'0');lock.flush();lock.seek(0)
+  while True:
+   try:msvcrt.locking(lock.fileno(),msvcrt.LK_NBLCK,1);break
+   except OSError:time.sleep(.05)
+ else:
+  import fcntl
+  fcntl.flock(lock,fcntl.LOCK_EX)
+ dest=base/'catalog.json'
+ if dest.is_symlink(): raise ValueError('catalog cannot be a symlink')
+ old=dest.read_bytes() if dest.exists() else None
+ # Merge source catalogs rather than dropping previously registered libraries.
+ if old:
+  prior=json.loads(old)
+  collections={x['id']:x for x in prior['collections']}
+  assets={x['assetId']:x for x in prior['assets']}
+  for x in value['collections']:
+   if x['id'] in collections and collections[x['id']]!=x: raise ValueError('existing collection revision differs; use a distinct collection identity')
+   collections[x['id']]=x
+  for x in value['assets']:
+   if x['assetId'] in assets and assets[x['assetId']]!=x: raise ValueError('existing immutable asset differs')
+   assets[x['assetId']]=x
+  value=dict(schema='sceneagent-asset-collections-v1',collections=list(collections.values()),assets=list(assets.values()))
+ raw=json.dumps(value,ensure_ascii=False,indent=2).encode();digest=hashlib.sha256(raw).hexdigest()
+ versions=base/'versions';versions.mkdir(exist_ok=True)
+ if old:
+  previous=versions/(hashlib.sha256(old).hexdigest()+'.json')
+  if not previous.exists(): previous.write_bytes(old)
+ fd,temp=tempfile.mkstemp(prefix='.catalog-',dir=base)
+ try:
+  with os.fdopen(fd,'wb') as out:out.write(raw);out.flush();os.fsync(out.fileno())
+  os.replace(temp,dest)
+  # Reuse the existing CPU parser/index without model scripts, SDK or a second database.
+  with tempfile.TemporaryDirectory(prefix='sceneagent-index-',dir=base) as code:
+   module=pathlib.Path(code)/'runtime';module.mkdir()
+   for name,data in p['files'].items():(module/name).write_bytes(base64.b64decode(data))
+   sys.path.insert(0,code)
+   from runtime.assets import _collection_rows,_index
+   legacy=pathlib.Path(p.get('legacyRoot') or (root/'asset-library'))
+   rows=list(_collection_rows(legacy,root))
+   if any(not pathlib.Path(row['path']).is_file() or any(not (pathlib.Path(row['packageRoot'])/name).is_file() for name in row['dependencyFiles']) for row in rows):raise ValueError('declared native dependencies missing')
+   connection=_index(legacy,root);count=connection.execute('SELECT count(*) FROM assets').fetchone()[0];connection.close()
+ except BaseException:
+  if old is None:dest.unlink(missing_ok=True)
+  else:
+   restore=base/'.catalog-restore';restore.write_bytes(old);os.replace(restore,dest)
+  raise
+ finally:
+  if pathlib.Path(temp).exists():pathlib.Path(temp).unlink()
+ print(json.dumps({'registered':True,'catalogHash':digest,'catalogRef':'assets/collections/catalog.json','assetCount':count,'runtimeVerified':False}))
+finally:
+ if os.name=='nt':
+  lock.seek(0);msvcrt.locking(lock.fileno(),msvcrt.LK_UNLCK,1)
+ else:fcntl.flock(lock,fcntl.LOCK_UN)
+ lock.close()`;
+  return singleJsonRemote(quote(target.remotePython) + ' -c ' + quote(script),JSON.stringify({root:target.remoteRoot,legacyRoot:target.legacyRoot,catalogFile:input.catalogFile,files}),
+    {timeoutMs:300000,maxBytes:65536,label:'资产目录登记',target,signal});
+}
+
 const bootstrap = `import sys,json,base64,pathlib,io,runpy,os,fcntl,hashlib
 packet=json.load(sys.stdin)
 root=pathlib.Path(packet['payload']['root']).resolve()
@@ -40,18 +115,26 @@ sys.stdin=io.StringIO(json.dumps(packet['payload']))
 runpy.run_path(str(module/'worker.py'),run_name='__main__')`;
 
 function ssh(command) {
-  if (!config.remoteHost || !config.remoteRoot || !config.remotePython) {
+  return connectCompute(config, command);
+}
+
+function connectCompute(target, command) {
+  if (!target.remoteRoot || !target.remotePython || (target.runtimeMode !== 'local' && !target.remoteHost)) {
     throw new Error('请按 studio.config.example.json 配置仿真主机、数据目录和 Python 路径。');
+  }
+  if (target.runtimeMode === 'local') {
+    if (process.platform === 'win32') throw new Error('Windows 工作台请选择 SSH Linux 仿真服务器。');
+    return spawn('sh', ['-c', 'exec ' + command], { stdio: ['pipe', 'pipe', 'pipe'] });
   }
   return spawn('ssh', ['-C', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=12', '-o', 'ServerAliveInterval=15',
     '-o', 'ControlMaster=auto', '-o', 'ControlPersist=60', '-o', 'ControlPath=~/.ssh/sceneagent-studio-%C',
-    config.remoteHost, command], { stdio: ['pipe', 'pipe', 'pipe'] });
+    target.remoteHost, command], { stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
-function singleJsonRemote(command, input, { timeoutMs, idleTimeoutMs, progressBytes, maxBytes, label, signal }) {
+function singleJsonRemote(command, input, { timeoutMs, idleTimeoutMs, progressBytes, maxBytes, label, signal, target }) {
   if (signal?.aborted) return Promise.reject(signal.reason || new Error(label+'已取消'));
   return new Promise((resolve, reject) => {
-    const child = ssh(command);
+    const child = target ? connectCompute(target, command) : ssh(command);
     const streaming = input && typeof input[Symbol.asyncIterator] === 'function';
     let chunks = [], bytes = 0, errors = Buffer.alloc(0), failure, closed = false, exited = false, exitCode, exitSignal,
       inputDone = !streaming, timer, killTimer, cleanupTimer, progressLine = '', discardProgressLine = false, received = 0;
@@ -315,8 +398,11 @@ async function runtimePacket(payload, executionDevice, executionGpuPeakMiB, exec
     throw new Error('请在项目配置中锁定本次执行显卡的编号和UUID');
   const files = {};
   const hash = createHash('sha256');
-  for (const name of (await readdir(path.join(ROOT, 'runtime'))).filter(name => name.endsWith('.py') || name === 'motion-dependencies.json').sort()) {
-    const bytes = await readFile(path.join(ROOT, 'runtime', name));
+  const names = (await readdir(path.join(ROOT, 'runtime'))).filter(name => name.endsWith('.py') || name === 'motion-dependencies.json');
+  if (config.motionDependencies && !names.includes('motion-dependencies.json')) names.push('motion-dependencies.json');
+  for (const name of names.sort()) {
+    const bytes = name === 'motion-dependencies.json' && config.motionDependencies
+      ? Buffer.from(config.motionDependencies.text) : await readFile(path.join(ROOT, 'runtime', name));
     files[name] = bytes.toString('base64');
     hash.update(name).update(bytes);
   }
@@ -341,7 +427,7 @@ async function runtimePacket(payload, executionDevice, executionGpuPeakMiB, exec
     if (request.task) request.task.gpuPeakMiB = peak;
   }
   return { files, codeHash: hash.digest('hex'), payload: { ...request,
-    root: config.remoteRoot, legacyRoot: config.legacyRoot || path.posix.join(config.remoteRoot, 'asset-library') } };
+    root: config.remoteRoot, legacyRoot: config.legacyRoot || path.posix.join(config.remoteRoot || '', 'asset-library') } };
 }
 
 export async function executeRemote(payload, { onEvent = () => {}, timeoutMs = 600000, signal, executionDevice, executionGpuPeakMiB, executionAllowGpu3 = false } = {}) {

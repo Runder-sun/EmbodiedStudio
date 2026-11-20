@@ -114,6 +114,7 @@
     <p id="setup-error" class="form-error" role="alert" hidden></p>
     <p id="setup-summary" class="artifact-caption" role="status"></p>
     <div id="setup-content" hidden>
+      <p class="setup-note" data-i18n="先选择工作区和计算位置，检测现有环境或保存草稿后安装缺项，再启用设置并重启。">先选择工作区和计算位置，检测现有环境或保存草稿后安装缺项，再启用设置并重启。</p>
       <section class="setup-section">
         <h3 data-i18n="运行位置与连接">运行位置与连接</h3>
         <p class="setup-note" data-i18n="工作台、工程和 Codex 在同一台主机运行；计算可用本机或 SSH 服务器。">工作台、工程和 Codex 在同一台主机运行；计算可用本机或 SSH 服务器。</p>
@@ -123,13 +124,14 @@
           <label><span data-i18n="仿真执行位置">仿真执行位置</span><select id="setup-runtime-mode"><option value="local" data-i18n="工作台主机">工作台主机</option><option value="ssh" data-i18n="SSH 计算服务器">SSH 计算服务器</option></select></label>
           <label><span data-i18n="SSH 主机别名">SSH 主机别名</span><input id="setup-ssh-host" autocomplete="off" placeholder="my-server"></label>
           <label><span data-i18n="计算主机的数据目录">计算主机的数据目录</span><input id="setup-data-root" required autocomplete="off"></label>
-          <label><span data-i18n="计算主机的 Python">计算主机的 Python</span><input id="setup-python" required autocomplete="off"></label>
+          <label><span data-i18n="计算主机的 Python">计算主机的 Python</span><input id="setup-python" autocomplete="off" placeholder="/srv/embodiedstudio/envs/isaac/bin/python"></label>
           <label><span data-i18n="Codex 原生程序">Codex 原生程序</span><input id="setup-codex-binary" autocomplete="off" placeholder="codex"></label>
           <label><span data-i18n="或官方 Codex JS 入口">或官方 Codex JS 入口</span><input id="setup-codex-script" autocomplete="off" placeholder="…/@openai/codex/bin/codex.js"></label>
           <label><span data-i18n="Codex 模型（可选）">Codex 模型（可选）</span><input id="setup-codex-model" autocomplete="off"></label>
-          <label><span data-i18n="同机共享的显卡锁目录">同机共享的显卡锁目录</span><input id="setup-gpu-lock-root" autocomplete="off"></label>
+          <label><span data-i18n="默认作业显存峰值（MiB，可选）">默认作业显存峰值（MiB，可选）</span><input id="setup-gpu-peak" type="number" min="1" step="1"></label>
+          <label><span data-i18n="已有只读资产库（可选）">已有只读资产库（可选）</span><input id="setup-legacy-root" autocomplete="off"></label>
           <label class="setup-wide"><span data-i18n="已验证的运动依赖清单（工作台主机路径，可选）">已验证的运动依赖清单（工作台主机路径，可选）</span><input id="setup-motion-dependencies" autocomplete="off"></label>
-          <fieldset id="setup-gpus" class="setup-wide"><legend data-i18n="参与并行仿真的显卡">参与并行仿真的显卡</legend><p data-i18n="先检测计算主机，再选择真实显卡；已有选择会保留。">先检测计算主机，再选择真实显卡；已有选择会保留。</p></fieldset>
+          <fieldset id="setup-gpus" class="setup-wide"><legend data-i18n="可用仿真显卡（首选为默认）">可用仿真显卡（首选为默认）</legend><p data-i18n="先检测计算主机，再选择真实显卡；已有选择会保留。">先检测计算主机，再选择真实显卡；已有选择会保留。</p></fieldset>
           <div class="setup-wide setup-actions"><button id="setup-save" type="submit" class="button primary" data-i18n="保存配置草稿">保存配置草稿</button><button id="setup-activate" type="button" class="button secondary" disabled data-i18n="启用已保存草稿">启用已保存草稿</button><span id="setup-config-status" class="artifact-caption" role="status"></span></div>
         </form>
         <p class="setup-note" data-i18n="保存草稿不会改变正在运行的任务。启用需受影响资源空闲，写入后须手动重启工作台；不会自动重启。">保存草稿不会改变正在运行的任务。启用需受影响资源空闲，写入后须手动重启工作台；不会自动重启。</p>
@@ -137,7 +139,7 @@
       <section class="setup-section">
         <h3 data-i18n="只读检测">只读检测</h3>
         <div class="setup-actions"><button type="button" class="button secondary" data-setup-probe="workspace" data-i18n="检测工作台与 Codex">检测工作台与 Codex</button><button type="button" class="button secondary" data-setup-probe="compute" data-i18n="检测计算环境与显卡">检测计算环境与显卡</button><button type="button" class="button secondary" data-setup-probe="ssh" data-i18n="检测 SSH 连接">检测 SSH 连接</button></div>
-        <p class="setup-note" data-i18n="检测不会安装软件或启动仿真。三系统可运行工作台；当前正式仿真仍需已接通并实测的 Linux、NVIDIA RTX 和隔离环境。">检测不会安装软件或启动仿真。三系统可运行工作台；当前正式仿真仍需已接通并实测的 Linux、NVIDIA RTX 和隔离环境。</p>
+        <p class="setup-note" data-i18n="检测会读取版本、登录状态、显卡和资产目录。正式仿真需要 Linux、NVIDIA RTX 和隔离环境。">检测会读取版本、登录状态、显卡和资产目录。正式仿真需要 Linux、NVIDIA RTX 和隔离环境。</p>
         <div id="setup-probe-result" class="setup-report" role="status"></div>
       </section>
       <section class="setup-section">

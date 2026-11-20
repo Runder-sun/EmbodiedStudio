@@ -6,13 +6,14 @@ import { randomUUID, createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { isDeepStrictEqual } from 'node:util';
-import { ROOT, config } from './config.mjs';
+import { ROOT, config, configuration as startupConfiguration, loadConfiguration, resolveCodexCommand } from './config.mjs';
 import { Store, contentHash, requiredOutputs } from './store.mjs';
 import { createTools } from './tools.mjs';
 import { TOOL_SCHEMAS } from './mcp.mjs';
 import { GenerationHost } from './generation.mjs';
 import { CodexBridge } from './codex.mjs';
 import * as remoteFiles from './remote.mjs';
+import { acquireWorkspaceOwnership, bindWorkspaceTarget, createSetup } from './setup.mjs';
 
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.py': 'text/plain; charset=utf-8', '.glb': 'model/gltf-binary', '.mp4': 'video/mp4', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.jsonl': 'application/x-ndjson' };
 
@@ -419,17 +420,37 @@ export function createNativeWorkReader({ codex, now = Date.now }) {
   };
 }
 
-export async function createStudio({ store = new Store(), remote = remoteFiles.executeRemote, bridge, port = config.port,
+export async function createStudio({ store: suppliedStore, remote = remoteFiles.executeRemote, bridge, port: suppliedPort,
+  configuration: suppliedConfiguration, configFile, setupOptions,
   traceSync = remoteFiles.syncTrace, generationConsumer, deliveryWriter = remoteFiles.writeRemoteProjectFile,
   onlineAssetStage = remoteFiles.stageOnlineAsset, producedArtifactsConsumer = remoteFiles.consumeProducedArtifacts } = {}) {
-  await store.load();
+  let configuration = suppliedConfiguration || (configFile ? loadConfiguration({ file: configFile }) : startupConfiguration);
+  const injectedWorkspace = suppliedStore && !suppliedConfiguration && !configFile;
+  let configured = Boolean(configuration.configured || injectedWorkspace);
+  const port = suppliedPort ?? configuration.value.port;
+  let store = configured && suppliedStore || new Store({ root: configured ? configuration.value.workspaceRoot : configuration.setupRoot });
+  let owner = await acquireWorkspaceOwnership({ workspaceRoot: store.root, configFile: configuration.file, port });
+  try {
+    if (configured) {
+      try { await bindWorkspaceTarget(owner, configuration.value, { confirmExisting:true }); }
+      catch (error) {
+        if (error.code !== 'target_bound') throw error;
+        await owner.release();
+        configured = false;
+        configuration = { ...configuration, configured:false, effectiveHash:null, diagnostics:[...configuration.diagnostics, error.message] };
+        store = new Store({ root:configuration.setupRoot });
+        owner = await acquireWorkspaceOwnership({ workspaceRoot:store.root, configFile:configuration.file, port });
+      }
+      if (configured) await store.load();
+    }
   const clients = new Set(), approvals = new Map(), resumed = new Set(), completedTurns = new Set();
   const openingChats = new Set(), openingJobs = new Set(), savingSources = new Set(), background = new Set();
   const mirrorQueues = new Map(), threadProjects = new Map();
   const traceController = new AbortController();
   let eventQueue = Promise.resolve(), remoteStatus = null, recoveryTimer, saveTimer, publishTimer, closing = false, closePromise;
   let host, tools;
-  const snapshot = () => ({ config: { remoteHost: config.remoteHost, remoteRoot: config.remoteRoot, port },
+  const snapshot = () => ({ config: { configured, runtimeMode:configuration.value.runtimeMode,
+    remoteHost: configuration.value.remoteHost, remoteRoot: configuration.value.remoteRoot, port },
     codex: codex.status(), remote: remoteStatus, projects: store.projects.map(publicProject), approvals: [...approvals.values()] });
   const emit = event => {
     if (!clients.size) return;
@@ -683,12 +704,13 @@ export async function createStudio({ store = new Store(), remote = remoteFiles.e
     }).catch(error => emit({ kind: 'error', error: error.message }));
     return eventQueue;
   };
-  const codex = bridge || new CodexBridge({ cwd: ROOT, onEvent: onCodexEvent, onRequest, networkAccess: true, model: config.codexModel,
-    command: [config.codexBinary || 'codex', 'app-server', '--listen', 'stdio://', '-c', 'web_search="live"'],
+  const codex = !configured ? { status:()=>({ ready:false, setupRequired:true }), async close(){} }
+    : bridge || new CodexBridge({ cwd: ROOT, onEvent: onCodexEvent, onRequest, networkAccess: true, model: configuration.value.codexModel,
+    command: [...resolveCodexCommand(configuration.value), 'app-server', '--listen', 'stdio://', '-c', 'web_search="live"'],
     skillsRoot: path.join(ROOT, 'skills'), skillPath: path.join(ROOT, 'skills/scene-generation/SKILL.md'),
     mcp: { command: process.execPath, args: [path.join(ROOT, 'src/mcp.mjs')],
       env: { SCENEAGENT_URL: `http://127.0.0.1:${port}` }, requiredTools: Object.keys(TOOL_SCHEMAS) } });
-  if (bridge) { bridge.onEvent = onCodexEvent; bridge.onRequest = onRequest; }
+  if (configured && bridge) { bridge.onEvent = onCodexEvent; bridge.onRequest = onRequest; }
 
   function instructions(project) {
     return `你是 SceneAgent 场景工程师，和用户用通俗中文交流，保留完整原生文件与工具能力。\n` +
@@ -930,13 +952,44 @@ export async function createStudio({ store = new Store(), remote = remoteFiles.e
     await pipeline(child.stdout, response);
   }
 
+  let setupReaders = 0;
+  const resourceBusy = () => {
+    const active = store.projects.filter(project => project.activeTurnId || openingChats.has(project.id)
+      || openingJobs.has(project.id) || savingSources.has(project.id)
+      || project.jobs.some(job => ['queued','running','unknown'].includes(job.status))
+      || project.generation && !['complete','cancelled','failed','draft'].includes(project.generation.status));
+    return [...(setupReaders ? ['当前请求'] : []), ...active.map(project => project.id),
+      ...[...approvals.keys()].map(id => 'approval:' + id)];
+  };
+  const setup = await createSetup({ configuration, owner, stateRoot:configuration.setupRoot, resourceBusy, ...setupOptions });
+
   const server = http.createServer(async (request, response) => {
+    let usesResources = false;
     try {
       const hostname = request.headers.host || '';
-      if (![ `127.0.0.1:${port}`, `localhost:${port}`, `127.0.0.1:${server.address()?.port}`, `localhost:${server.address()?.port}` ].includes(hostname)) throw Object.assign(new Error('仅接受本机访问'), { status: 403 });
+      const hostPort = Number(hostname.split(':').at(-1));
+      if (!/^(?:127\.0\.0\.1|localhost):(?:0|[1-9]\d{0,4})$/.test(hostname) || hostPort > 65535 || hostPort === 0 && port !== 0)
+        throw Object.assign(new Error('仅接受本机访问'), { status: 403 });
       const url = new URL(request.url, `http://${hostname}`);
       if (request.headers.origin && request.headers.origin !== `http://${hostname}`) throw Object.assign(new Error('跨来源访问已拒绝'), { status: 403 });
       const parts = url.pathname.split('/').filter(Boolean);
+      if (url.pathname === '/api/setup' && request.method === 'GET') return json(response, await setup.inspect());
+      if (url.pathname === '/api/setup/probe' && request.method === 'POST') return json(response, await setup.probe(await body(request)));
+      if (url.pathname === '/api/setup/config' && request.method === 'PUT') return json(response, await setup.saveConfig(await body(request)));
+      if (url.pathname === '/api/setup/install' && request.method === 'POST') return json(response, await setup.install(await body(request)), 202);
+      if (parts[0] === 'api' && parts[1] === 'setup' && parts[2] === 'install' && parts[3]) {
+        if (parts.length === 4 && request.method === 'GET') return json(response, await setup.installation(parts[3], Number(url.searchParams.get('cursor') ?? 0)));
+        if (parts.length === 5 && parts[4] === 'cancel' && request.method === 'POST') {
+          await body(request); return json(response, await setup.cancel(parts[3]));
+        }
+      }
+      if (!configured && parts[0] === 'api' && !['state','events','setup'].includes(parts[1]))
+        throw Object.assign(new Error('请保存并启用设置，然后重启工作台。'), { status:503, code:'setup_required' });
+      if (url.pathname === '/api/assets' || url.pathname === '/api/health' ||
+          parts[0] === 'api' && request.method !== 'GET' && !['interrupt','cancel','job'].includes(parts[3] || parts[2])) {
+        setup.assertAvailable('generation');
+        usesResources = true; setupReaders++;
+      }
       if (url.pathname === '/api/events' && request.method === 'GET') {
         response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
         if (!writeSse(response, `data: ${JSON.stringify({ kind: 'state', state: snapshot() })}\n\n`)) return;
@@ -1009,13 +1062,15 @@ export async function createStudio({ store = new Store(), remote = remoteFiles.e
       throw Object.assign(new Error('接口不存在'), { status: 404 });
     } catch (error) {
       if (response.headersSent) response.destroy(error);
-      else json(response, { error: error.message }, error.status || (error.code === 'ENOENT' ? 404 : 500));
-    }
+      else json(response, { error: error.message, ...(error.status && error.code ? { code:error.code } : {}) }, error.status || (error.code === 'ENOENT' ? 404 : 500));
+    } finally { if (usesResources) setupReaders--; }
   });
-  return { server, store, codex, tools, host,
+  return { server, store, codex, tools, host:configured ? host : null, setup,
     async start() {
-      await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
+      try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); }
+      catch (error) { await setup.close(); await owner.release(); throw error; }
       const address = `http://127.0.0.1:${server.address().port}`;
+      if (!configured) return address;
       if (codex.mcp) codex.mcp.env.SCENEAGENT_URL = address;
       track(codex.start().then(publish));
       const recover = () => { for (const project of store.projects) if (project.generation && ['active', 'cancel_requested', 'recovering', 'waiting_jobs', 'waiting_user', 'waiting_system'].includes(project.generation.status)) track(host.recover(project)); };
@@ -1027,7 +1082,7 @@ export async function createStudio({ store = new Store(), remote = remoteFiles.e
       closePromise = (async () => {
         closing = true; clearInterval(recoveryTimer); clearTimeout(saveTimer); clearTimeout(publishTimer);
         traceController.abort(new Error('工作台关闭，轨迹传输已中断。'));
-        const preparationStopped = tools.close();
+        const preparationStopped = Promise.all([tools.close(), setup.close()]);
         const stopped = new Promise(resolve => server.close(resolve));
         for (const response of clients) response.end(); server.closeAllConnections();
         await preparationStopped; await codex.close(); await eventQueue;
@@ -1036,13 +1091,15 @@ export async function createStudio({ store = new Store(), remote = remoteFiles.e
           project.activeTurnId = null;
           if (project.generation && !['complete', 'failed', 'cancelled'].includes(project.generation.status)) project.generation.status = project.generation.waitingSystem ? 'waiting_system' : 'recovering';
         }
-        await store.save();
+        if (configured) await store.save();
         while (background.size) await Promise.all([...background]);
-        await store.save(); await stopped;
-      })();
+        if (configured) await store.save();
+        await stopped;
+      })().finally(() => owner.release());
       return closePromise;
     }
   };
+  } catch (error) { await owner.release(); throw error; }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

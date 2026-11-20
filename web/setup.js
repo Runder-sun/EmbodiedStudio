@@ -6,8 +6,8 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
   const receipts = new Map();
   const fields = {
     workspaceRoot: 'workspace-root', port: 'port', runtimeMode: 'runtime-mode', remoteHost: 'ssh-host',
-    remoteRoot: 'data-root', remotePython: 'python', codexBinary: 'codex-binary', codexScript: 'codex-script',
-    codexModel: 'codex-model', gpuLockRoot: 'gpu-lock-root', motionDependenciesFile: 'motion-dependencies',
+    remoteRoot: 'data-root', remotePython: 'python', legacyRoot:'legacy-root', codexBinary: 'codex-binary', codexScript: 'codex-script',
+    codexModel: 'codex-model', remoteGpuPeakMiB:'gpu-peak', motionDependenciesFile: 'motion-dependencies',
   };
   const names = {
     'workspace-dependencies': '工作台依赖', 'codex-cli': 'Codex CLI', 'isaac6-runtime': 'Isaac Sim 环境',
@@ -20,6 +20,7 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
     destination: '全新的准备或回执目录', prefix: '尚未启用的运行环境目录', version: '明确版本号',
     basePython: '用于创建环境的 Python（可选）', packageIds: '具体资产包（可多选）',
     catalogFile: '计算主机上的资产目录清单', robotPackage: '已有机器人冻结包', stageRequestId: '已有准备记录',
+    peakMiB: '预计显存峰值（MiB）',
   };
   const statusNames = { running: '正在安装', completed: '已完成', failed: '执行失败', cancel_requested: '正在请求取消',
     cancelled: '已取消', interrupted: '安装状态待确认', unknown: '退出状态未确认' };
@@ -42,7 +43,8 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
     for (const [key, id] of Object.entries(fields)) {
       const entry = $('setup-' + id).value.trim();
       if (key === 'port') value[key] = Number(entry);
-      else if (['codexBinary', 'codexScript', 'codexModel', 'gpuLockRoot', 'motionDependenciesFile'].includes(key)) { delete value[key]; if (entry) value[key] = entry; }
+      else if (key === 'remoteGpuPeakMiB') { delete value[key]; if (entry) value[key] = Number(entry); }
+      else if (['codexBinary', 'codexScript', 'codexModel', 'motionDependenciesFile'].includes(key)) { delete value[key]; if (entry) value[key] = entry; }
       else value[key] = entry || null;
     }
     if (value.codexScript) delete value.codexBinary;
@@ -56,7 +58,7 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
   }
   function showGpus(gpus = [], selected = []) {
     const box = $('setup-gpus');
-    const legend = node('legend', '参与并行仿真的显卡');
+    const legend = node('legend', '可用仿真显卡（首选为默认）');
     box.replaceChildren(legend);
     if (!gpus.length) { box.append(node('p', '先检测计算主机，再选择真实显卡；已有选择会保留。')); return; }
     for (const gpu of gpus) {
@@ -81,7 +83,9 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
   function showConfiguration() {
     const configuration = snapshot.configuration;
     text($('setup-summary'), '工作台：{platform} · 配置文件：{file}', { platform: snapshot.platform.platform, file: configuration.file });
-    text($('setup-config-status'), configuration.restartRequired ? '已写入配置，当前进程仍使用原配置；请在任务空闲后手动重启。'
+    if (!configuration.restartRequired && !configuration.draftHash && configuration.diagnostics?.length)
+      $('setup-config-status').textContent = configuration.diagnostics.join(' ');
+    else text($('setup-config-status'), configuration.restartRequired ? '已写入配置，当前进程仍使用原配置；请在任务空闲后手动重启。'
       : configuration.draftHash ? '已有配置草稿，当前任务继续使用生效配置。' : '尚未保存新草稿。');
     $('setup-activate').disabled = !configuration.draftHash;
     const draftOption = [...$('setup-target').options].find(row => row.value === 'draft');
@@ -136,7 +140,7 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
         for (const entry of recipe.packages || []) { const choice = raw('option', entry.name + ' · ' + bytes(entry.bytes)); choice.value = entry.id; input.append(choice); }
         input.onchange = () => renderLicenses(recipe);
         label.className = 'setup-wide';
-      } else { input.type = 'text'; input.autocomplete = 'off'; }
+      } else { input.type = option.type === 'number' ? 'number' : 'text'; input.min = '1'; input.autocomplete = 'off'; }
       label.append(input); grid.append(label);
     }
     const licenses = node('div', undefined, 'setup-licenses'); licenses.id = 'setup-license-list';
@@ -162,6 +166,7 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
     const compute = result.compute;
     if (compute?.python) rows.push(['计算系统', compute.platform], ['Python', compute.python.executable + ' · ' + compute.python.version],
       ['可用磁盘', bytes(compute.disk?.freeBytes)], ['隔离环境', compute.isolation?.bwrap ? 'bwrap' : t('未检测到')]);
+    for (const library of compute?.libraries || []) rows.push(['已登记资产', library.path + ' · ' + (library.error || library.assets)]);
     for (const [name, version] of Object.entries(compute?.packages || {})) rows.push([name, version || t('未检测到')]);
     if (compute?.error) rows.push(['计算检测错误', compute.error]);
     if (compute?.gpuError) rows.push(['显卡检测', compute.gpuError]);
@@ -169,15 +174,48 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
     for (const [key, value] of rows) if (value !== undefined) { const row = node('div', undefined, 'setup-report-row'); row.append(node('strong', key), raw('span', value)); container.append(row); }
     container.append(node('p', '以上仅为连接和元数据检测，不代表 SDK、机器人任务或正式仿真已验证。', 'setup-note'));
   }
+  const pendingReceipts = new Set();
+  async function fetchReceipt(previous) {
+    if (pendingReceipts.has(previous.requestId)) return;
+    pendingReceipts.add(previous.requestId);
+    try {
+      const receipt = await api('/api/setup/install/' + encodeURIComponent(previous.requestId) + '?cursor=' + (previous.nextCursor || 0));
+      receipts.set(receipt.requestId, { ...receipt, events: [...(previous.events || []), ...(receipt.events || [])].slice(-300) });
+    } catch (failure) { error(failure.message); }
+    finally { pendingReceipts.delete(previous.requestId); }
+  }
   function renderInstalls() {
     const expanded = new Set([...$('setup-installs').children].filter(row => row.open).map(row => row.dataset.requestId));
     $('setup-installs').replaceChildren(...[...receipts.values()].map(receipt => {
       const detail = node('details', undefined, 'setup-install-receipt');
       detail.dataset.requestId = receipt.requestId; detail.open = expanded.has(receipt.requestId);
+      detail.ontoggle = async () => {
+        if (detail.open && receipt.nextCursor === undefined && !pendingReceipts.has(receipt.requestId)) {
+          await fetchReceipt(receipt); if (dialog.open) renderInstalls();
+        }
+      };
       const summary = node('summary'); summary.append(raw('code', receipt.requestId), node('span', statusNames[receipt.status] || receipt.status));
       detail.append(summary);
       if (receipt.error) detail.append(raw('p', receipt.error, 'form-error'));
       if (['unknown', 'interrupted'].includes(receipt.status)) detail.append(node('p', '远端退出尚未确认；请保留目录和记录，不要把连接退出当作安装已取消。', 'setup-note'));
+      for (const item of receipt.items || []) {
+        if (item.catalogFile) detail.append(raw('p', item.catalogFile, 'setup-note'));
+        if (item.registered) detail.append(text(node('p', undefined, 'setup-note'), '资产索引：{count} 项', { count:item.assetCount }));
+        const settings = formValue();
+        const sameTarget = receipt.target?.runtimeMode === settings.runtimeMode
+          && receipt.target?.host === settings.remoteHost && receipt.target?.root === settings.remoteRoot;
+        const script = item.recipeId === 'codex-cli' ? item.actual?.command?.[1] : null;
+        for (const [id, value, label] of [
+          ['setup-codex-script', script, '将 Codex 路径填入设置'],
+          ['setup-python', sameTarget && item.actual?.metadata?.python?.executable, '将 Python 路径填入设置'],
+          ['setup-motion-dependencies', sameTarget && item.motionDependenciesFile, '将依赖清单填入设置'],
+        ]) {
+          if (!value) continue;
+          const button = node('button', label, 'button secondary'); button.type = 'button';
+          button.onclick = () => { $(id).value = value; $(id).oninput(); $(id).focus(); };
+          detail.append(raw('p', value, 'setup-note'), button);
+        }
+      }
       const log = raw('pre', (receipt.events || []).map(row => row.time + ' ' + row.type + ' ' + row.message).join('\n'), 'setup-log');
       detail.append(log);
       if (['running', 'cancel_requested'].includes(receipt.status)) {
@@ -191,14 +229,9 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
   }
   async function poll() {
     clearTimeout(pollTimer); if (!dialog.open) return;
-    const active = [...receipts.values()].filter(row => ['running', 'cancel_requested'].includes(row.status));
-    await Promise.all(active.map(async previous => {
-      try {
-        const receipt = await api('/api/setup/install/' + encodeURIComponent(previous.requestId) + '?cursor=' + (previous.nextCursor || 0));
-        receipts.set(receipt.requestId, { ...receipt, events: [...(previous.events || []), ...(receipt.events || [])].slice(-300) });
-      } catch (failure) { error(failure.message); }
-    }));
-    if (dialog.open) { renderInstalls(); if ([...receipts.values()].some(row => ['running', 'cancel_requested'].includes(row.status))) pollTimer = setTimeout(poll, 2500); }
+    const active = row => ['running', 'cancel_requested'].includes(row.status) || row.moreEvents;
+    await Promise.all([...receipts.values()].filter(active).map(fetchReceipt));
+    if (dialog.open) { renderInstalls(); if ([...receipts.values()].some(active)) pollTimer = setTimeout(poll, 2500); }
   }
   async function load(fill = false) {
     const version = ++request, requestedEdits = edits; error(''); text($('setup-summary'), '正在读取设置…');
@@ -269,8 +302,6 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
       const selection = gpuEdited ? [...$('setup-gpus').querySelectorAll('input[data-setup-gpu]')].filter(row => row.checked).map(row => Number(row.value))
         : hardwareChanged ? [] : (original.gpuDevices || []).map(row => row.index);
       showGpus(result.compute.gpus, selection);
-      const suggestion = result.compute.gpuLockRootSuggestion?.path;
-      if (!$('setup-gpu-lock-root').value && suggestion) { $('setup-gpu-lock-root').value = suggestion; dirty = true; }
     }
   });
   $('setup-recipe').onchange = renderRecipe;
@@ -300,7 +331,7 @@ export function createSetupView({ document, api, t, i18n, onActivated }) {
   function tunnelCommand() {
     const host = $('setup-tunnel-host').value.trim(), local = Number($('setup-tunnel-port').value), remote = Number($('setup-tunnel-remote-port').value);
     const valid = /^[a-zA-Z0-9][a-zA-Z0-9_.@:[\]-]{0,199}$/.test(host) && [local, remote].every(value => Number.isInteger(value) && value > 0 && value < 65536);
-    $('setup-tunnel-command').textContent = valid ? `npm run scene -- connect "${host}" --local-port ${local} --remote-port ${remote} --open` : t('填写已有 SSH 别名和有效端口后显示连接命令。');
+    $('setup-tunnel-command').textContent = valid ? `ssh -NT -o ExitOnForwardFailure=yes -o ForwardAgent=no -o StrictHostKeyChecking=yes -L 127.0.0.1:${local}:127.0.0.1:${remote} "${host}"` : t('填写已有 SSH 别名和有效端口后显示连接命令。');
   }
   for (const id of ['setup-tunnel-host', 'setup-tunnel-port', 'setup-tunnel-remote-port']) $(id).oninput = tunnelCommand;
   tunnelCommand();

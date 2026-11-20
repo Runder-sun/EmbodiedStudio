@@ -1,5 +1,16 @@
 (() => {
   const translations = Object.freeze({
+    "先选择工作区和计算位置，检测现有环境或保存草稿后安装缺项，再启用设置并重启。": "Choose where Studio and simulation run. Check your environment, or save a draft to install missing items. Activate the configuration and restart Studio.",
+    "默认作业显存峰值（MiB，可选）": "Default job peak GPU memory (MiB, optional)",
+    "已有只读资产库（可选）": "Existing read-only asset library (optional)",
+    "可用仿真显卡（首选为默认）": "Simulation GPUs (first selected device is the default)",
+    "检测会读取版本、登录状态、显卡和资产目录。正式仿真需要 Linux、NVIDIA RTX 和隔离环境。": "Checks inspect versions, sign-in, GPUs and the asset catalog. Formal simulation requires Linux, NVIDIA RTX and isolation.",
+    "将 Codex 路径填入设置": "Use this Codex path in settings",
+    "将 Python 路径填入设置": "Use this Python path in settings",
+    "将依赖清单填入设置": "Use this dependency manifest in settings",
+    "预计显存峰值（MiB）": "Estimated peak GPU memory (MiB)",
+    "已登记资产": "Registered assets",
+    "资产索引：{count} 项": "Asset index · {count} items",
     "本次产出": "Requested outputs",
     "完整生成": "Complete generation",
     "场景与评测环境": "Scene and evaluation environment",
