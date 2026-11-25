@@ -42,7 +42,7 @@ The source package contains the workbench and runtime. You can give Studio a pub
 | Robot execution data | Read recorded observations, actions, camera frames and task scores. |
 | Evaluation environment | Run a compatible policy against the same frozen scene and scoring program. |
 
-See the [authoring API](skills/scene-generation/references/api.md) and the [delivery guide](skills/scene-generation/references/delivery.md) for the file formats and interfaces. Both references are in Chinese.
+See the [authoring API](skills/scene-generation/references/api.md) and the [delivery guide](skills/scene-generation/references/delivery.md) for the file formats and interfaces.
 
 ## Develop
 

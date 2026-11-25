@@ -1,83 +1,83 @@
-# 自主生成标准交付物
+# Producing standard deliverables
 
-仅在当前生成任务声明 `deliveryContract='producer-exports-v1'` 时使用。先从 `project_inspect` 读取当前需求、身份、冻结版本、回合和实际工具位置。旧任务不追补本契约；需求和质量仍由你及内部审核者负责。
+Use this guide only when the current generation declares `deliveryContract='producer-exports-v1'`. Obtain the current request, identities, frozen revisions, episodes, and actual tool locations from `project_inspect`. Older jobs keep their original contracts. The author and independent reviewer remain responsible for requirements and quality.
 
-## 按请求交付
+## Deliver the requested outputs
 
-### 用户显式只保留原始录像
+### Explicit raw-video-only recording
 
-用户新指令及 `project_inspect.recordOnlyVideos=true` 优先于历史 producer-exports-v1、内审和正式交付要求。此模式只用于 `videoOnly=true`、`requiredOutputs=["demonstrations"]`，由 `recordOnlyTaskIds` 锁定本次真实任务；每个任务仅需一条真实机器人从原始初态完整完成原任务的成功录像，已有真实成功记录直接复用。完成后仅报告原始视频引用及 taskId、revision、episodeId，不复制、改编码、打包或制作产物清单，不输出训练数据，不召集 `scene_quality_review`，不执行独立审核、消费者或 `project_deliver` 交付检查。保留场景、物理和任务完成条件，保留真实源、执行、失败与中断；记录成功不冒称独立审核或格式检查通过。以下导出和审核规则在此用户显式模式中不适用；仅有 `videoOnly=true` 时仍按原流程。
+The user's latest instruction and `project_inspect.recordOnlyVideos=true` override historical producer-exports-v1, review, and formal delivery requirements. This mode requires `videoOnly=true` and `requiredOutputs=["demonstrations"]`. `recordOnlyTaskIds` fixes the actual tasks. For each, retain one successful video of the real robot completing the full original task from its original initial state. Reuse existing successful recordings. Report only the original video reference, taskId, revision, and episodeId. Do not copy, re-encode, package, create a manifest, export training data, summon `scene_quality_review`, or run independent review, consumers, or `project_deliver` checks. Preserve the scene, physics, completion conditions, sources, executions, failures, and interruptions. Recording success does not imply review or format validation. The export and review rules below do not apply to this explicit mode. Setting only `videoOnly=true` retains the usual workflow.
 
-### 仅全过程视频
+### Complete execution videos only
 
-`project_inspect.videoOnly=true` 时，demonstrations 只交用户要求的完整机器人执行视频，不生成 LeRobot、HDF5 或其他训练数据；其余未请求产物仍省略。真实机器人控制、完整原任务成功证据和内部独立审核照常保留，不把测试夹具、拼接片段或正确终态当成功视频。
-没有 `environmentRefs` 的新录像任务可以在本工程冻结所需环境；已有显式环境引用仍保持只读，禁止重建。环境和生成原始记录照常留存，但不要求额外导出环境产品或训练轨迹。
-新录像没有初始环境引用时，内审和产物清单按交付接口实际推导的 `environmentRefs=[{revision: 当前交付版本}]` 绑定，并带 `requiredOutputs=["demonstrations"]`；不能把未定义的初始引用写入最终清单。
+With `project_inspect.videoOnly=true`, the demonstrations product comprises only requested complete robot execution videos. Omit LeRobot, HDF5, other training data, and unrequested products. Real control, evidence of completing the entire original task, and independent review still apply. A fixture, edited sequence, or correct final pose cannot establish success.
+For new recording requests without `environmentRefs`, freeze the required environment in the project. Explicitly selected environments remain read-only. Keep raw environment and generation records without exporting an extra environment product or training trace.
+When the new recording has no initial environment reference, bind the review and product manifest to the delivery interface's derived `environmentRefs=[{revision: currentDeliveryRevision}]` and `requiredOutputs=["demonstrations"]`. Do not propagate an undefined initial reference into the final manifest.
 
-产物清单与内部审核的原有 binding 顶层另加 `videoOnly:true`。`products.robot` 为非空列表，每项仅含 `{video:"T02.mp4",mapping:"T02-video.json"}` 两个相对文件路径。每个 mapping 的 `episodes` 只含一条，保留与本次选择完全相同的 `{episodeId,taskId,revision?,use}`，另加 `sourceVideo:"episodes/<episodeId>/<实际原始视频相对路径>"`。此路径相对本工程远端项目目录；直接复制整条原始视频，接收器核原件字节、完整解码和执行来源，不接受裁剪、重编码、替换或跨工程文件冒充该执行。视频取景和全过程成功仍由内部审核者自主确认。
+Add `videoOnly:true` at the top level of the existing product manifest and review binding as required by the interface. `products.robot` is a nonempty list. Each item contains exactly two relative paths, such as `{video:"T02.mp4",mapping:"T02-video.json"}`. Each mapping's `episodes` has one entry preserving the selected `{episodeId,taskId,revision?,use}` and adding `sourceVideo:"episodes/<episodeId>/<actual-original-relative-video-path>"`, relative to the remote project directory. Copy the complete original video. The consumer checks original bytes, full decoding, and execution provenance. Crops, re-encodes, substitutions, or other projects' files cannot represent that execution. The independent reviewer confirms framing and full task success.
 
-按原流程在 `delivery/` 导出，清单 `files` 列视频与 mapping 的真实字节及摘要，绑定固定执行集合，再申请 `project_deliver`。视频文件名无任务种类要求；格式修复继续复用原回合，无须重新仿真。`videoOnly` 缺省时保持原双训练格式合同。
+Export under `delivery/`. List the video's and mapping's actual byte lengths and digests in `files`, bind the selected executions, and request `project_deliver`. Video names need not encode the task type. Reuse the episode for format repairs. Omitting `videoOnly` retains the dual training-format contract.
 
-读取本次 `requiredOutputs/environmentRefs`，只导出相应产品：generation对应rawTrace、ATIF和训练JSONL；videoOnly缺省时demonstrations对应同源LeRobot与HDF5；evaluation对应冻结环境、任务与评分包。未请求项在products中省略，不补假目录或自报通过。机器人阶段仍保留真实生成过程，但没有要求第一产物时不必重新导出它。
+Read `requiredOutputs/environmentRefs`. For generation, export rawTrace, ATIF, and training JSONL. For demonstrations with videoOnly omitted, export same-source LeRobot and HDF5. For evaluation, export the frozen environment, tasks, and scoring. Omit unrequested keys from products. Do not invent directories or assert a pass. Keep the actual generation process in the robot stage without re-exporting the first product unless requested.
 
-新范围合同的清单 `binding` 同时包含与宿主完全相同的 `requiredOutputs/environmentRefs`。`episodes` 逐项带真实 `{episodeId,taskId,revision,use}`；每个机器人组 `mapping.episodes` 也带同一个revision，不能用最新环境版本覆盖所有回合。同一物理回合的两个格式、多相机及重渲染只算一条原始轨迹。环境包可以在相同data root闭包中保留同工程多个选定revision，必须包括清单内每个所选版本的manifest/资源/runtime和运行入口；不能只打包最新一版。
+Under the scoped contract, manifest `binding` must match the host's `requiredOutputs/environmentRefs`. Include the actual `{episodeId,taskId,revision,use}` for every entry in `episodes`. Include the same revision in each robot group's `mapping.episodes`. Do not assign the latest revision to older episodes. Two formats, multiple cameras, or rerenders of a single physical episode count as one source trajectory. An environment package can hold multiple selected revisions from the same project within one data root. Include the manifest, resources, runtime, and entry point for every selected revision.
 
-独立采集的behaviorRef与代码闭包也属于原始来源，随机器人数据说明保留；存在机器人安装时，同时保留每回合的robotSetupRef/robotSetupSha256、配置与模型依赖闭包、组合I/O及录制声明。独立评测使用同一冻结安装引用，打包保留data root内的相对关系，不依赖作者原工程的绝对路径。场景包可以不含机器人或专家入口。当前整个workspace的sourceHash只绑定本次导出与审核期间不变，环境身份和独立行为身份分别引用冻结闭包，改行为或格式不要求重建旧环境。
+Retain the independent collection's behaviorRef and code closure with the robot data. When a robot installation exists, preserve each episode's robotSetupRef/robotSetupSha256, configuration and model dependency closure, combined I/O, and recording declarations. Use the same frozen installation for independent evaluation. Preserve relative paths under the data root without depending on the author's absolute project paths. A scene package may omit robot and expert entry points. The workspace sourceHash binds the unchanged workspace during export and review. Environment and independent behavior identities reference their respective frozen closures. Changing behavior or format does not require rebuilding an older environment.
 
-## 分工与工作区
+## Responsibilities and workspace
 
-系统保留真实公开事件、源码快照、冻结场景、逐周期物理事实和来源，提供官方格式工具及既有交付接口。你在本工程 `delivery/` 与远端 `projects/<projectId>/delivery/<run>/` 内编写并运行导出、校验、启动和打包脚本。这些是可修复的项目产物，不是系统内核。原始记录和工具环境只读。
+Studio preserves public events, source snapshots, frozen scenes, per-cycle physics measurements, and provenance, and supplies official format tools and the delivery interface. Author and run export, validation, launch, and packaging scripts in the project's `delivery/` and the remote `projects/<projectId>/delivery/<run>/`. These are repairable project products. Treat raw records and tool environments as read-only.
 
-先对已选输入与用途建立一套映射，再由同一映射输出两种机器人格式；使用标准读取器回读后，由内部审核者核对数据语义、权限和原需求。导出脚本、字段映射、路径或格式错误由你自主修正、重新导出。复用同一真实回合，格式修复无需重新仿真。只有可信采集、官方工具环境或系统发布接口本身的实际故障，才使用 `generation_wait_system`。
+Establish one mapping from selected inputs to intended uses and derive both robot formats from it. Read them back with standard readers. The independent reviewer checks semantics, permissions, and the original request. Repair export scripts, field mappings, paths, and formats within the project, then re-export from the same real episode. Use `generation_wait_system` only for an actual failure in trusted capture, the official reader environment, or system publication.
 
-## 三种交付物
+## Three products
 
-| 产物 | 输出与用途 |
+| Product | Output and use |
 | --- | --- |
-| LLM 轨迹 | 原始公开事件及引用、`ATIF-v1.7`、训练 JSONL；恢复真实工具与代码决策，保留失败和缺口 |
-| 机器人轨迹 | 同源 LeRobot v3 和 robomimic `SequenceDataset` 可读 HDF5；原始回合仍保留为事实基准 |
-| 仿真评测环境 | 同版场景/资源/机器人、任务与 rubrics/案例、观测动作合同、可获得运行依赖、原样评测入口与使用说明 |
+| LLM trajectory | Original public events and references, `ATIF-v1.7`, and training JSONL. Recover actual tool and code decisions, including failures and gaps. |
+| Robot trajectory | Same-source LeRobot v3 and HDF5 readable by robomimic's `SequenceDataset`. Keep the original episode as the reference. |
+| Simulation evaluation environment | Same-revision scene, assets, robot where applicable, tasks, rubrics, cases, observation/action contract, obtainable runtime dependencies, unmodified evaluation entry point, and instructions. |
 
-格式可读不证明场景质量、任务成功或学习效果。本次交付范围要求完成机器人任务或成功示范时，仍需真实成功执行与内部审核，失败和截断不改成成功示范。
+Format readability does not establish scene quality, task success, or learning performance. If the request requires robot completion or successful demonstrations, obtain real successful execution and internal review. Preserve failure and truncation labels.
 
-### LLM 轨迹
+### LLM trajectory
 
-从系统原始公开轨迹的一个完整事件前缀派生，清单锁定前缀字节数和 SHA256。原件不按训练长度删除。每条训练记录用非空 `sourceEventIds` 指向该前缀内的真实事件，并包含 `messages` 或 `prompt`/`completion`。
+Derive the product from a complete event prefix of the original public trace. Lock the prefix's byte length and SHA256 in the manifest. Retain the original regardless of training length. Each training record needs nonempty `sourceEventIds` identifying actual events in that prefix, and either `messages` or `prompt`/`completion`.
 
-`project_inspect.recording` 提供现有工作台轨迹文件、仿真主机数据根下的镜像相对路径、`.trace/sources` 与 `.trace/inputs` 目录及最后镜像状态。它只增加发现信息；`project_inspect` 仍会执行原有源码快照和调用记录。原档案保持只读，由你在 `delivery/` 自主复制与打包，不修改系统原件，也不依靠当前源文件或工具打印片段拼出历史档案。
+`project_inspect.recording` locates the workbench trace, its mirror path relative to the simulation data root, the `.trace/sources` and `.trace/inputs` directories, and the latest mirror status. This provides discovery only. `project_inspect` still records its normal source snapshot and call. Copy and package original read-only archives under `delivery/`. Do not reconstruct history from today's files or excerpts printed by a tool.
 
-原始引用也属于第一产物。扫描已锁定 raw 前缀中的结构化 `snapshotRef/inputRef/beforeSourceRef/afterSourceRef`，包含其他生成轮次的引用；`source_snapshot.previousSourceHash` 对应的历史源也须保留。读取输入档案后继续处理 `instructionsRef` 等同类引用。仅处理真实路径字段，不从代码、命令、正文或 diff 猜引用。将引用的真实原始 JSON 字节复制到 `products.generation.archiveRoot` 下，保留 `.trace/sources/<hash>.json` 和 `.trace/inputs/<hash>.json` 的相对布局，逐项列入 `files`。同工程 `projects/<projectId>/.trace/...` 引用解析到相同布局；不得跨工程、使用软链接或添加猜测别名。
+References are part of the generation product. Scan structured `snapshotRef/inputRef/beforeSourceRef/afterSourceRef` fields in the locked raw prefix, including references from other generation turns. Include historical sources named by `source_snapshot.previousSourceHash`. Follow input-archive references such as `instructionsRef` transitively. Use actual path fields only. Do not infer references from code, commands, prose, or diffs. Copy the original JSON bytes under `products.generation.archiveRoot`, preserving `.trace/sources/<hash>.json` and `.trace/inputs/<hash>.json`, and list each file in `files`. Resolve same-project `projects/<projectId>/.trace/...` references to the same layout. Do not cross projects, use symlinks, or guess aliases.
 
-两类摘要不同：sources 文件名及 `sourceHash` 是 `sourceFiles` 映射的紧凑 JSON 摘要（保留键顺序与中文，不能重排或修剪源码空白），不是档案 JSON 文件的字节摘要；inputs 文件名及 `inputHash` 是档案原始字节 SHA256。清单 `files[].sha256/bytes` 另外锁定每份档案的真实文件字节，包括 JSON 空白。冻结时消费者会与原工程原件逐字节比对，冻结后仅靠包内原档案复验；重新序列化后内容相似不能代替原件。
+A sources filename and `sourceHash` identify the compact JSON digest of the `sourceFiles` mapping. Preserve key order, Unicode including Chinese text, and source whitespace. This differs from the archive file's byte digest. An inputs filename and `inputHash` use SHA256 of the original archive bytes. Separately, `files[].sha256/bytes` locks the actual bytes, including JSON whitespace, for each archived file. At freeze, the consumer compares against the original project byte for byte. After freeze it revalidates from the archived originals. A reserialized equivalent document cannot replace the original.
 
-`archiveRoot` 只在这个 raw 前缀实际引用源或输入档案时必需；前缀没有此类引用时可省略，不制造空档案。消费者的 `archiveClosure.complete` 仅表示所锁 raw 前缀的源、输入及传递指令档案闭包完整，不代表隐藏上下文、完整原生 session 或所有媒体/环境引用均被归档。截止后追加的事件与档案属于后续导出，不污染已冻结前缀；截止前已经引用的档案不能以截止为由省略。未请求 generation 的机器人数据交付无需补第一产物；旧 binding 省略 `requiredOutputs` 时仍默认完整三产物。
+Require `archiveRoot` only when the raw prefix references source or input archives. Omit it otherwise. `archiveClosure.complete` certifies closure of source, input, and transitively referenced instruction archives for that prefix only. It does not cover hidden context, the complete native session, or every media or environment reference. Later events and archives belong to later exports. Include every archive already referenced at the cutoff. A robot delivery without generation need not add the first product. Older bindings omitting `requiredOutputs` still default to all three.
 
-- 工具调用与返回按真实 call ID 配对，训练消息保留真实 `tool_call_id`，其他训练模板在其映射中保留等价调用关联；合并同一原生条目的流式增量，区分当时截断返回与后台完整报告。原生条目已记录调用名称、参数与结果但没有独立模型 call_id 时，可用该条目稳定身份建立并说明关联，不能因此丢掉真实工具动作，也不声称恢复了未知原模型字段。公开命令、文件编辑及其后果不能在 ATIF/训练投影中静默漏掉；未识别的公共编辑保留原件和缺口。只有 diff 或快照、没有原始调用时，只能记录已发生的变更，不能反推助手调用或意图。
-- 主、子会话各自保留有来源的输入和历史，只按真实委派关系链接。子代理没有原始委派或消息输入时标明未知，不能用根任务替代并当作上下文完整的 SFT；也不能把并发消息拼成一个代理的历史。
-- 公开助手消息和有来源的实际工具调用动作可作相应助手目标，工具返回是观察；活动通知、等待状态及其他工具/系统观察不合成为助手发言。输入只含动作前已知事实，修改后的代码和后续结果不得倒灌输入。私有推理和助手 analysis 不进入公开 ATIF/训练视图；模型、完整上下文、token/logprob 与结束时间缺证据时保持未知。
-- 失败留在原件中，训练保留失败及其后果、后续修正和验证的关系。按用途区分目标、观察与采样权重，不默认每次等待或失败都是同权正例；真实的排错红例、有效但未成功的尝试也不一概删除。
-- 按完整决策或失败—修复窗口和实际目标模型的 tokenizer 预算切分，记录覆盖与截断；不用固定步数代替预算，也不靠字符串截断破坏 JSON、拆散调用/返回或留下孤立 tool 消息。相同工程、分支和修复片段保持同一数据划分，助手目标与历史助手/用户/工具观察的训练遮罩分开。尚未选定模型时可先交可复用 messages，明确未做该 tokenizer 的预算与 token 级遮罩。完整调用—返回单元仍超预算时保留原件并说明未覆盖部分，不强塞或补造缺失调用。
-- 内审从 raw 实际追查有价值的决策或失败—修复链，核对其编辑、工具返回、后果及适用子分工在 ATIF/训练中的来源和覆盖，必要缺口照实说明。JSON 可读或官方读取器通过不能代替这项语义核对；不为凑链补造调用、子任务输入或成功结果。
+- Pair tool calls and returns by real call ID. Keep `tool_call_id` in training messages or an equivalent association in another template's mapping. Merge streamed deltas for the same native item and distinguish a then-truncated return from the full background report. If a native item records name, arguments, and result without a separate model call_id, document an association using its stable item identity. Retain actual tool actions without claiming unknown model fields. Include public commands, edits, and consequences in ATIF and training projections. Preserve unrecognized public edits and disclose gaps. A diff or snapshot without the call records a change only. Do not infer the assistant's call or intent.
+- Retain sourced inputs and histories separately for parent and child sessions. Link them only through actual delegation. Mark missing delegation or message input unknown. Do not substitute the root request for a child's input as complete SFT context or merge concurrent messages into one agent's history.
+- Sourced public assistant messages and actual tool calls can be assistant targets. Tool returns are observations. Activity notifications, wait statuses, and system/tool observations must not become fabricated assistant speech. Inputs contain only facts available before the action. Exclude subsequent code and outcomes, private reasoning, and assistant analysis from public ATIF and training views. Leave model, complete context, token/logprob, and finish time unknown when unsupported.
+- Preserve failures in the raw trace. Keep the relationships between failures, consequences, repairs, and validation in training. Distinguish targets, observations, and weights by use. Waits and failures are not automatically equal-weight positive examples. Retain genuine failing reproducers and useful unsuccessful attempts.
+- Split at complete decisions or failure–repair windows under the actual target model's tokenizer budget. Record coverage and truncation. Fixed step counts cannot replace token budgeting. Preserve JSON, paired calls/returns, and message structure. Keep a project's branches and repair fragments in the same data split. Separate loss masks for assistant targets from prior assistant/user/tool observations. When the target model is unspecified, deliver reusable messages and disclose the absence of tokenizer-specific budgeting and token masks. If a whole call/return still exceeds budget, retain the original and disclose omitted coverage.
+- The reviewer traces valuable decisions or failure–repair chains from raw events through edits, tool returns, consequences, and applicable child work to their coverage in ATIF and training. Disclose necessary gaps. JSON parsing and official readers cannot substitute for semantic verification. Never invent calls, child inputs, or successes to complete a chain.
 
-Harbor 出题中的八字段是可选方法摘要，不能代替完整交互，也不带入固定时长、双模型、轮数或系统自定分数。
+The eight Harbor task-authoring fields are optional method summaries. They do not replace the interaction history or impose fixed durations, two models, fixed rounds, or a system-assigned score.
 
-官方模型与读取器见 [Harbor ATIF](https://docs.harborframework.com/agents/atif)。显式写 `schema_version='ATIF-v1.7'`，不要跟随库的默认版本。步骤从 1 连续，`observation.results[].source_call_id` 对应本步骤真实 `tool_call_id`。使用官方 `Trajectory.model_validate()` 与 `TrajectoryValidator.validate(Path(...))`，同时检查本地图片引用；自定义来源与缺口放 `extra`。
+Use the [official Harbor ATIF models and readers](https://docs.harborframework.com/agents/atif). Explicitly set `schema_version='ATIF-v1.7'` independently of library defaults. Number steps consecutively from 1. Match each `observation.results[].source_call_id` to that step's actual `tool_call_id`. Use official `Trajectory.model_validate()` and `TrajectoryValidator.validate(Path(...))` and check local image references. Store custom provenance and gaps in `extra`.
 
-### 机器人双格式
+### Dual robot formats
 
-先读取冻结 I/O、Task、episode 和媒体帧表。`examples/read_demonstrations.py` 的完整资格读取需要匹配的 SDK 环境；CPU 格式脚本读取已经核验的同一原始文件及其摘要，不能在 CPU 上绕过 SDK 检查后声称重新验证了物理。
+Read the frozen I/O, Task, episode, and media frame tables first. Full qualification with `examples/read_demonstrations.py` requires a matching SDK environment. CPU format scripts read the same verified raw files and digests. They cannot revalidate physics by skipping SDK checks.
 
-映射至少说明源 episode/用途、特征来源、端口与关节顺序、shape/dtype、单位/坐标、命令语义、控制时钟、相机权限、源帧时间和标注来源。不同维度或不同语义分组，不按品牌写白名单，也不默认补零拼接。
+Document source episodes and uses, feature provenance, port and joint order, shape/dtype, units, frames, command semantics, control clock, camera permissions, source frame times, and annotation provenance. Group different dimensions or semantics separately. Avoid brand whitelists and implicit zero padding.
 
-- `executedAction` 是实际下发并读回的驱动目标；实际 q/dq 等状态另存。持久端口省略时从本回合 `nativeInitialTargets` 和此前命令保持；旧记录缺初值就保留未知或报告此 profile 缺项，不能用构建探测值或 0 补齐。瞬时 effort 不暗补。
-- 每行对应真实控制周期 `observation_t → command_t → observation_next`。高频物理样本另存，不能冒充额外策略步。低频图像若按最新已采帧保持，保留源帧 ID、实际采样时间及 age，两格式用相同源帧映射；不取未来帧或造黑图。
-- 原策略允许的 stream/`policyCameraIds` 与额外观察相机、评分真值分开。采用额外视角训练新策略时显式声明新的训练观察合同，不声称采集策略看过它们。保留每帧内外参及模拟传感器/外部观察来源。
-- 任务文字与生成器阶段标注可随数据提供；rubric 标注保持 `generated_interpretation`、周期与来源，不冒充人工真值或传感器事件。深度和像素语义未实际采集就写未支持。
-- `terminated`、`truncated`、`success` 分开，未知 reward 不补 0。仅行为克隆不需要的未知监督可明确省略；需要它的训练用途保持缺项。自然完整回合保存；训练窗口不跨回合，边界 padding 带 mask，统计只用训练划分。
+- `executedAction` is the drive target actually issued and read back. Store measured q/dq separately. Resolve omitted persistent ports from the episode's `nativeInitialTargets` and preceding commands. If an older record lacks initial values, leave them unknown or report the profile gap. Never substitute build probes or zero. Do not silently fill transient effort.
+- Each row represents the real control cycle `observation_t → command_t → observation_next`. Store higher-rate physics samples separately. When holding the latest available lower-rate image, retain its source frame ID, actual sample time, and age. Use the same mapping in both formats. No future frames or fabricated black images.
+- Distinguish policy-permitted streams and `policyCameraIds` from observer cameras and scoring truth. Training a new policy on additional views needs an explicit new observation contract. Preserve per-frame intrinsics, extrinsics, and simulated-sensor or external-observer provenance.
+- Task text and generator phase annotations may accompany data. Keep rubric labels as `generated_interpretation` with cycle and source. They are neither human ground truth nor sensor events. Report unsupported depth or pixel semantics when not captured.
+- Keep `terminated`, `truncated`, and `success` separate. Never fill unknown reward with zero. Explicitly omit unknown supervision unused for behavior cloning. Mark uses requiring it incomplete. Preserve full natural episodes, keep training windows within episodes, mask boundary padding, and compute statistics from the training split only.
 
-LeRobot 使用锁定官方 `LeRobotDataset.create(...)`、`add_frame(...)`、`save_episode()`、`finalize()`；`finalize()` 后再新建本地 reader 并实际读数值和视频，不能只看目录存在。特征形状由本次实际机器人决定。每帧包含真实特征和 `task`；`timestamp/frame_index` 由 writer 按 fps 生成，实际采集时间另存源时钟特征或映射，不把容器时间冒称采样时间。参考 [官方 v3 说明](https://huggingface.co/docs/lerobot/lerobot-dataset-v3)。
+Use the pinned official LeRobot methods `LeRobotDataset.create(...)`, `add_frame(...)`, `save_episode()`, and `finalize()`. After `finalize()`, open a fresh local reader and read actual numbers and video. Derive feature shapes from the actual robot and include real features and `task` in every frame. The writer makes `timestamp/frame_index` from fps. Store actual capture times in source-clock features or mappings and distinguish them from container time. See the [official v3 guide](https://huggingface.co/docs/lerobot/lerobot-dataset-v3).
 
-下面是库调用骨架，`features`、`fps` 和帧均由你从同一真实数据映射产生，不是系统预定机器人向量：
+Derive `features`, `fps`, and frames in this example from one mapping of the actual data. Studio does not prescribe a fixed robot vector.
 
 ```python
 from lerobot.configs import RGBEncoderConfig
@@ -90,20 +90,20 @@ writer = LeRobotDataset.create(
 try:
     for episode in canonical_episodes:
         for frame in episode:
-            writer.add_frame(frame.copy())  # 包含实际 features 和 task
+            writer.add_frame(frame.copy())  # Include actual features and task.
         writer.save_episode(parallel_encoding=False)
 finally:
     writer.finalize()
 loaded = LeRobotDataset(repo_id, root=lerobot_root,
                        download_videos=False, video_backend='pyav')
-sample = loaded[0]  # 实际读数值与像素，再与源映射核对
+sample = loaded[0]  # Read numbers and pixels and compare against the source mapping.
 ```
 
-编码参数按数据取用需求选择；上例单线程是小型调用示例，不是所有场景的性能上限。
+Choose encoding parameters for the intended access pattern. The single thread illustrates a small example and does not limit other workloads.
 
-实际读取后核对 dtype 和 shape：默认转换可能降低浮点秒钟精度，单元素特征也可能返回零维张量。源时钟优先保留原始整数 tick、timeOrigin 和速率；派生整数时间要说明精度。只有读取器压缩了单元素形状时，按已声明的实际 feature shape 恢复，不补造数值。
+Check dtype and shape after readback. Default conversions may reduce floating-point time precision or return scalar tensors for singleton features. Preserve original integer ticks, timeOrigin, and rate when possible. State the precision of derived integer timestamps. Restore a singleton to its declared shape only when the reader squeezed it. Do not invent values.
 
-HDF5 使用 `h5py` 写 `data/demo_i/obs/<key>`、`next_obs/<key>`、`actions` 和 `num_samples`，图像为实际 uint8 像素，不能只放视频路径。用官方锁版 `robomimic.utils.dataset.SequenceDataset` 读取；先通过 `ObsUtils.initialize_obs_modality_mapping_from_dict()` 声明 low_dim/RGB，再传实际 `obs_keys`、`action_keys`、`action_config`。`lang=None` 不加载额外语言模型；任务文字和来源可放扩展元数据。只承诺其离线训练布局，不能伪造 MuJoCo `states/model_file` 或环境类型。参考 [官方 Dataset API](https://robomimic.github.io/docs/modules/datasets.html)。
+Use `h5py` to write `data/demo_i/obs/<key>`, `next_obs/<key>`, `actions`, and `num_samples`. Store actual uint8 pixels, not video paths. Read with the pinned official `robomimic.utils.dataset.SequenceDataset`. Initialize low_dim/RGB with `ObsUtils.initialize_obs_modality_mapping_from_dict()` and pass actual `obs_keys`, `action_keys`, and `action_config`. Set `lang=None` to avoid loading another language model. Task text and provenance may be extension metadata. Claim only support for its offline training layout. Never fabricate MuJoCo `states/model_file` or an environment type. See the [official Dataset API](https://robomimic.github.io/docs/modules/datasets.html).
 
 ```python
 import robomimic.utils.obs_utils as ObsUtils
@@ -122,32 +122,32 @@ finally:
     reader.close_and_delete_hdf5_handle()
 ```
 
-两种读取结果核对同一 episode、动作、状态、源时间、源帧、用途与标注。有损 MP4 解码与原 PNG 的像素差异如实注明，不要求压缩后文件摘要相同。不要分别重算映射，也不要把两份文件称作两次独立采集。
+Compare both readers against the same episode, actions, states, source clock, frames, uses, and labels. Report pixel differences between lossy decoded MP4 and original PNG. Their compressed file digests need not match. Use one mapping and count both exports as one collection.
 
-### 仿真评测目录
+### Simulation evaluation directory
 
-环境根保持现有相对引用结构，清单只复制必要公开文件：
+Preserve the existing relative reference layout under the environment root. Copy only necessary public files into the manifest.
 
 ```text
 <environment.root>/
   projects/<projectId>/revisions/<revision>/manifest.json
-  projects/<projectId>/revisions/<revision>/...同版源、stage、资源闭包
-  projects/<projectId>/episodes/<selectedEpisode>/...必要记录与媒体
-  runtime/<runtimeCodeHash>/runtime/...冻结内核
+  projects/<projectId>/revisions/<revision>/...same-revision sources, stage, and resource closure
+  projects/<projectId>/episodes/<selectedEpisode>/...required records and media
+  runtime/<runtimeCodeHash>/runtime/...frozen kernel
   jobs/<publicationJob>/{status,result}.json
 ```
 
-必要的 publication 终态文件维持已签发布来源。不要直接归档整个工程或 jobs，不带 PID/进程控制文件、评分私态、隔离探针、认证、临时缓存和其他工程。受许可限制不能随包再分发的资源提供准确获取和安装说明，不从 BEHAVIOR 加密数据中抽出资产。
+Include the required terminal publication files to preserve signed provenance. Do not archive entire projects or jobs. Exclude PIDs, process-control files, private scoring state, isolation probes, credentials, caches, and other projects. Provide exact acquisition and installation instructions for resources whose licenses prohibit redistribution. Never extract assets from encrypted BEHAVIOR data.
 
-原样复制本系统 `examples/evaluate.py` 作为 `entrypoint`，README 给出 `--root <environment.root>`、manifest、兼容候选与显式 GPU 的运行方式。保留冻结 worker、实际依赖与解释器/ABI 校验；当前只声明实际可获得的 Linux/NVIDIA 运行环境。把依赖安装或镜像/前缀取得方式、版本和许可写清楚，不能删校验或仅改绝对路径冒称可移植。
+Copy Studio's `examples/evaluate.py` unchanged as `entrypoint`. Document `--root <environment.root>`, the manifest, compatible candidate policy, and explicit GPU selection in the README. Preserve the frozen worker, actual dependencies, and interpreter/ABI checks. Claim only the obtainable Linux/NVIDIA runtime. Document dependency installation or image/prefix acquisition, versions, and licenses. Changing an absolute path or removing checks does not establish portability.
 
-protocol 说明任务指令、实体绑定、允许观察动作、初态/seed、时长、终止/截断、rubrics、案例及结果含义。当前固定 seed 就声明固定实例，不捏造随机化或泛化划分。正式消费者对该新根执行既有加载和最多一周期接口检查；不是整条任务的第二次稳定成功门。
+Document the task, entity bindings, permitted observations/actions, initial state/seed, duration, termination/truncation, rubrics, cases, and result meanings in the protocol. Declare a fixed instance when the seed is fixed. Do not invent randomization or generalization splits. The formal consumer loads from the new root and checks the interface for at most one control cycle. It does not certify repeated success on the whole task.
 
-## 官方 CPU 工具
+## Official CPU tools
 
-实际数据根从宿主工程指令取，当前部署使用其下 `envs/delivery-readers-v1/bin/python`；固定官方来源在 `tools/delivery-readers-v1/`。`project_inspect.runtimeExecution` 是仿真 SDK，不把它当 CPU 格式解释器。依赖与来源由 `environment.json` 留存，和 Isaac SDK 环境分开，不修改共享工具或 SDK。
+Get the data root from the host project instructions. This deployment uses `envs/delivery-readers-v1/bin/python` under that root and pins official sources under `tools/delivery-readers-v1/`. `project_inspect.runtimeExecution` identifies the simulation SDK. Use the separate CPU interpreter for formats. `environment.json` records dependencies and provenance. Keep the shared tools and SDK unchanged.
 
-LeRobot/h5py 是正式安装库；Harbor 官方 wheel 与 robomimic 官方锁版源码只作有限模型/读取器。它们没有安装完整 Harbor 调度器或 robomimic 仿真/训练算法依赖。可在自己的导出脚本中按实际数据根添加这两条固定工具路径，再使用官方 API：
+LeRobot and h5py are installed libraries. The official Harbor wheel and pinned robomimic source supply only the required models/readers, without the full Harbor scheduler or robomimic simulation/training dependencies. Add the two pinned paths for the actual data root in your exporter and use the official APIs.
 
 ```python
 import sys
@@ -163,25 +163,25 @@ from robomimic.utils.dataset import SequenceDataset
 import h5py
 ```
 
-本地 reader 用 `root=`、明确视频后端和离线文件，不调用 Hub 上传。工具错误先读该锁版 API 与真实报错，修本工程脚本；工具来源损坏或固定依赖本身不可导入才报告系统缺陷。
+Use `root=`, an explicit video backend, and offline files. Do not upload to the Hub. Diagnose errors against the pinned API and original error, then fix the project script. Report a system defect only for corrupt tool sources or a pinned dependency that itself cannot be imported.
 
-## 交付清单
+## Delivery manifest
 
-清单路径为远端 `projects/<projectId>/delivery/<run>/manifest.json`。所有产物路径相对该清单目录；`files` 逐项列实际普通文件的 `path/bytes/sha256`，目录由其中完整文件组成。清单不把自己列进 `files`；`project_deliver` 用独立摘要固定它，避免自引用。
+Write the remote manifest at `projects/<projectId>/delivery/<run>/manifest.json`. Product paths are relative to its directory. List every real regular file's `path/bytes/sha256` in `files`. Cover complete directories through their files. Omit the manifest itself. `project_deliver` locks its digest separately to avoid self-reference.
 
 ```json
 {
   "schema": "sceneagent-produced-artifacts-v1",
   "binding": {
-    "projectId": "当前工程", "generationId": "当前生成任务",
-    "requirementVersion": 1, "requestHash": "真实需求摘要",
-    "sourceHash": "当前工程源审核绑定摘要", "revision": "冻结版本",
+    "projectId": "current-project", "generationId": "current-generation",
+    "requirementVersion": 1, "requestHash": "actual-request-hash",
+    "sourceHash": "reviewed-workspace-source-hash", "revision": "frozen-revision",
     "requiredOutputs": ["generation", "evaluation"],
-    "environmentRefs": [{"revision": "冻结版本"}]
+    "environmentRefs": [{"revision": "frozen-revision"}]
   },
   "episodes": [],
-  "trace": {"bytes": 123, "sha256": "真实公开轨迹前缀摘要"},
-  "files": [{"path": "实际相对文件", "bytes": 123, "sha256": "实际文件摘要"}],
+  "trace": {"bytes": 123, "sha256": "actual-public-trace-prefix-digest"},
+  "files": [{"path": "actual-relative-file", "bytes": 123, "sha256": "actual-file-digest"}],
   "products": {
     "generation": {"rawTrace": "generation/raw.jsonl", "archiveRoot": "generation/originals", "atif": "generation/trajectory.json", "training": "generation/train.jsonl"},
     "environment": {"root": "environment/data", "entrypoint": "environment/evaluate.py", "readme": "environment/README.md", "runtime": "environment/runtime.json"}
@@ -189,8 +189,8 @@ import h5py
 }
 ```
 
-这是仅交 generation 与 evaluation 的场景范围示例，不要求机器人示范。数字、身份和摘要均从实际输入计算；示意值不能提交。请求 demonstrations 时，按本次真实范围替换 `binding.requiredOutputs/environmentRefs`，加入实际 `products.robot` 双格式入口，并用真实 `{episodeId,taskId,revision,use}` 填 `episodes`，与内部审核选择一致；验证回合不冒充示范，`use` 不默认成功。
+This scene-only example requests generation and evaluation. Compute identities, counts, and digests from the inputs. Never submit example values. For demonstrations, use the actual `binding.requiredOutputs/environmentRefs`, add the real dual-format `products.robot` entry, and populate `episodes` with `{episodeId,taskId,revision,use}` matching the review selection. Keep verification distinct from demonstrations. A `use` value does not establish success.
 
-每组 `mapping.json` 含 `episodes=[{episodeId,revision,lerobotEpisodeIndex,hdf5Demo,steps}]` 和 `hdf5Obs={state:'low_dim',front:'rgb',...}`，再说明实际动作、时钟、权限、相机、标注与数据划分。不同组的回合不重复，总集等于本次已选回合。
+Each group's `mapping.json` contains `episodes=[{episodeId,revision,lerobotEpisodeIndex,hdf5Demo,steps}]` and `hdf5Obs={state:'low_dim',front:'rgb',...}`. Document actual actions, clock, permissions, cameras, annotations, and splits. Groups must be disjoint and collectively cover exactly the selected episodes.
 
-先完成回读并计算清单摘要，交内部审核者检查；其最终 v2 回执顶层增加同一 `producedArtifacts={manifestRef,sha256}`。通过当前版本复审后，向既有 `project_deliver` 传相同指针，使用新 requestId。导出内容或清单变化需复审新摘要。缺必需格式或读取失败保持 incomplete；你修复导出后重新申请，原始执行和旧失败记录保留。只有唯一正式回执 accepted 后宣布本次请求的产物交付完成。
+Read back the outputs and compute the manifest digest before review. The reviewer includes the identical `producedArtifacts={manifestRef,sha256}` at the top level of the final v2 receipt. After current-revision re-review passes, submit the same pointer to the existing `project_deliver` with a new requestId. Changed exports or manifests require review of the new digest. Missing formats or read failures remain incomplete. Repair the export and reapply, retaining original executions and previous failures. Announce completion only after the authoritative receipt returns accepted.

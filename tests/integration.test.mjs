@@ -591,14 +591,19 @@ test('public instructions and submitted skill references can be recovered from f
   assert.equal(started.cwd, studio.store.directory(project.id));
   assert.equal(started.instructions, instructions);
   for (const text of [started.instructions, input.skillReference.text]) {
-    assert.ok(text.includes('当前生成工程的源程序和必要辅助文件'));
     assert.ok(text.includes('assets/imports/'));
-    assert.ok(text.includes('src、runtime、tests、skills'));
-    assert.ok(text.includes('宿主状态') && text.includes('服务均只读'));
     assert.ok(text.includes('generation_wait_system'));
-    assert.ok(text.includes('由系统开发代理处理'));
-    assert.ok(text.includes('不得为修改系统源码、配置、技能或服务自行修复、申请提权或重启服务'));
   }
+  assert.ok(started.instructions.includes('当前生成工程的源程序和必要辅助文件'));
+  assert.ok(started.instructions.includes('src、runtime、tests、skills'));
+  assert.ok(started.instructions.includes('宿主状态') && started.instructions.includes('服务均只读'));
+  assert.ok(started.instructions.includes('由系统开发代理处理'));
+  assert.ok(started.instructions.includes('不得为修改系统源码、配置、技能或服务自行修复、申请提权或重启服务'));
+  const skill = input.skillReference.text;
+  assert.ok(skill.includes("current project's sources and necessary helpers"));
+  assert.ok(skill.includes('src, runtime, tests, skills, configuration, host state, and services as read-only'));
+  assert.ok(skill.includes('System development handles it'));
+  assert.ok(skill.includes('Do not edit system files, request elevated privileges to change Studio, or restart its services'));
   assert.ok(started.instructions.includes(`/assets/imports/${project.id}/`));
   assert.ok(started.instructions.includes(`/assets/imports/robots/${project.id}/`));
   assert.ok(started.instructions.includes(`/projects/${project.id}/delivery/`));

@@ -1,29 +1,29 @@
-# 数采与经验复用
+# Demonstration collection and experience reuse
 
-用于本次范围包含机器人示范的任务。沿用原生会话、冻结环境、独立行为和现有交付，不另建采集调度器、布局注册表或审核流程。具体调用以 [实际接口](api.md#独立阶段与布局集合) 为准。
+Use this guide when the request includes robot demonstrations. Use the native session, frozen environments, independently frozen behaviors, and existing delivery process. Do not introduce another collection scheduler, layout registry, or review process. See the [stage and layout interfaces](api.md#independent-stages-and-layout-sets).
 
-## 续接与复用
+## Resume and reuse existing work
 
-先对账已有布局、行为版本、真实回合和在途作业。复用原工程及已有进度文件中的引用；作业未结束时继续原作业，不重复提交。成功示范按实际环境 revision、任务、行为身份和示范资格计数，接口探针、失败回合、同布局重复及多视角分别记录。
+Reconcile existing layouts, behavior revisions, real episodes, and jobs in flight. Use references in the original project and its progress records. Continue outstanding jobs under their existing identities. Count successful demonstrations by actual environment revision, task, behavior identity, and demonstration eligibility. Record interface probes, failures, repeated runs on one layout, and multiple views separately.
 
-保留有效资产、机器人接入、环境和评分的同版证据。仅修改行为时用 `robot_run(behavior={sourceRef,helperRefs},...)` 独立冻结；仅修改导出时重新转换、回读和审核导出，均不因此重建环境或重采已有成功示范。环境确需改变时冻结新版本，保留旧记录与划分，不能把旧版证据当新版通过。
+Reuse valid assets, robot integration, and same-revision environment and scoring evidence. Freeze behavior-only changes independently with `robot_run(behavior={sourceRef,helperRefs},...)`. For an export-only change, convert, read back, and review the new export. Neither change requires rebuilding the environment or recollecting successful demonstrations. If the environment must change, freeze a new revision. Retain the old records and splits, and obtain evidence for the new revision.
 
-## 先发展专家，再扩大采集
+## Develop the expert before scaling up collection
 
-第一次成功后，保存可重跑的行为闭包及适用的机器人、坐标、观察动作和接触条件。从既定训练布局中选择能暴露位置或关系变化的布局继续适配，将经验落实为根据当前观测求目标、检查执行后果并处理偏差的程序。优先复用同一专家或少量有明确适用条件的版本，不为每个布局手填一套绝对动作。单次成功证明的范围保持如实，不称为已掌握其他布局。
+After the first success, save the rerunnable behavior closure and document the applicable robot, coordinate frames, observations, actions, and contact conditions. Choose further layouts from the predefined training split that expose changes in position or relationships. Turn experience into code that computes goals from current observations, checks outcomes, and handles deviations. Prefer one reusable expert or a small number of versions with explicit conditions of use. Avoid baking a different absolute action sequence into every layout. Report exactly what a single success establishes.
 
-专家开发与批采是工作重心的切换，不设固定试跑数量或新增通过门槛。依据跨布局实际结果逐步扩大执行；已满足本次要求的开发回合可计入训练数据，不额外重跑一遍。后续行为更新不抹去旧版真实成功；每条数据仍绑定实际执行的行为版本。测试布局不用于专家调试、参数选择或示范扩增。
+Shift from expert development to batch collection according to actual cross-layout results. No fixed trial count or extra pass gate applies. Development episodes that already satisfy the request can count as training data. A later behavior update does not erase an earlier success. Bind each sample to the behavior actually executed. Keep test layouts out of expert debugging, parameter selection, and demonstration augmentation.
 
-## 降低失败定位成本
+## Localize failures efficiently
 
-失败后先读原作业的错误、执行阶段、记录和分项耗时，区分接口/数值问题与实际运动、接触问题。能用已有真实输入复现的字段、关节顺序、坐标、规划起态及轨迹边界问题，先在工程内做小型数值检查，再发起有依据的物理尝试；数值通过不当作机器人成功。公开工具或权限之外的真实系统阻碍仍走原等待接口。
+Read the original job's error, stage, records, and timing breakdown. Distinguish interface and numerical errors from actual motion and contact failures. If recorded inputs reproduce a field, joint-order, coordinate, planning-start, or trajectory-boundary issue, run a small numerical check inside the project before another physical attempt. A numerical pass does not establish robot success. Use the existing wait interface for actual system blockers outside public tools or permissions.
 
-一次执行内复用规划器和已确认的反馈映射。对当前实测状态筛选合法候选，执行后根据实际反馈推进或恢复；数值候选失败时先在当前状态尝试其他合法候选。实际状态变化后更新起态和碰撞关系，不能回滚已执行前缀或跨状态照搬旧轨迹。阶段目标与恢复由生成器编写，通用执行使用 [轨迹执行接口](api.md#复用运动规划与策略)，不复制一套系统内核。
+Reuse the planner and verified feedback mappings within an execution. Screen legal candidates against the current measured state. Advance or recover based on observed consequences. If a numerical candidate fails, try another legal candidate at that state. After physical state changes, update the starting state and collision relationships. Do not roll back an executed prefix or replay an old trajectory from a different state. The generator writes phase goals and recovery. Use the shared [trajectory execution interface](api.md#motion-planning-and-policy-reuse).
 
-## 采集与验证
+## Collection and verification
 
-批采指复用已冻结专家处理所需布局，按当前公开能力执行：不同布局使用各自 revision；`repetitions` 只重复同一初态，不能请求不存在的多布局批量接口。可在等待时处理独立准备或导出工作，依赖同一世界的物理操作保持顺序。不因追求吞吐删减已约定相机、必要记录、物理过程或评分；离线重渲染和并行环境只有在系统明确支持并验证后使用。
+For a batch, reuse the frozen expert on the required layouts. Each layout has its own revision. `repetitions` repeats the same initial state. There is no multi-layout batch call. Independent preparation or export can proceed while waiting. Keep physical operations on the same world in order. Preserve agreed cameras, required records, physical execution, and scoring when optimizing throughput. Offline rerendering and parallel environments require explicit, verified system support.
 
-每条拟用示范仍读取其真实评分、执行结果及示范资格，并由原内部独立审核流程核验。复用已有同版图像和证据，按本次变更与未核范围安排复验；不能仅因进入新布局或导出阶段就重做全部历史工作，也不能把一个布局的审核推广为其他布局已合格。
+Read the actual score, execution result, and demonstration eligibility for each proposed episode and submit it to the existing independent internal review. Reuse images and evidence from the same revision. Recheck changed or unexamined areas. Entering a new layout or export stage does not call for repeating all historical work. Review of one layout cannot certify others.
 
-在已有进度记录中简要写明当前在发展专家还是复用采集、有效行为及适用范围、已成功布局和下一项工作，并引用真实作业与失败。耗时引用原作业的启动、执行、记录等可得数据；缺测保持未知，嵌套计时不相加。以新增合格示范、不同布局成功情况和实际耗时说明进展，不以文件数、构建数或工具调用数冒充产量。
+Use the existing progress record to indicate whether you are developing the expert or collecting with it. Record the valid behavior and its scope, successful layouts, the next work item, and references to actual jobs and failures. Use available job timings for startup, execution, and recording. Treat missing times as unknown and avoid adding nested intervals. Report progress through newly qualified demonstrations, success on distinct layouts, and elapsed time. File, build, and tool-call counts do not measure output.
